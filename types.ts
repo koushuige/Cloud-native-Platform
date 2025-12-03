@@ -1,5 +1,4 @@
 
-
 export enum ClusterStatus {
   RUNNING = 'Running',
   WARNING = 'Warning',
@@ -101,6 +100,34 @@ export interface ProjectMember {
 
 // --- Application / Workload Types ---
 
+export type ScalingMetricType = 'CPU' | 'Memory' | 'NetworkIn' | 'NetworkOut' | 'StorageRead' | 'StorageWrite' | 'Custom';
+
+export interface ScalingRule {
+  id: string;
+  metricType: ScalingMetricType;
+  targetValue: number;
+  unit: string; // '%', 'Mbps', 'MiB', 'Count'
+  customMetricName?: string;
+}
+
+export interface ScheduledScalingRule {
+  id: string;
+  name: string;
+  schedule: string; // Cron expression
+  targetReplicas: number;
+  enabled: boolean;
+  timezone?: string;
+}
+
+export interface ApplicationScalingConfig {
+  enabled: boolean;
+  minReplicas: number;
+  maxReplicas: number;
+  currentReplicas: number;
+  metrics: ScalingRule[];
+  schedules: ScheduledScalingRule[];
+}
+
 export interface Application {
   id: string;
   name: string;
@@ -120,6 +147,7 @@ export interface Application {
     memory: string;
     requests: string; // RPS
   };
+  scalingConfig?: ApplicationScalingConfig;
   createdAt: string;
   updatedAt: string;
 }
@@ -139,6 +167,7 @@ export interface ApplicationTemplate {
   version: string;
   category: string;
   icon?: string; // Icon name or URL
+  maintainer?: string;
 }
 
 export interface K8sEvent {
@@ -169,6 +198,7 @@ export interface Workload {
   cpuRequest?: string;
   memRequest?: string;
   createdAt: string;
+  scaling?: ApplicationScalingConfig; // Embedded scaling config for workload view
 }
 
 export interface Pod {
@@ -180,6 +210,8 @@ export interface Pod {
   restarts: number;
   age: string;
   ip: string;
+  cpuUsage?: string;
+  memUsage?: string;
 }
 
 export interface HPA {
