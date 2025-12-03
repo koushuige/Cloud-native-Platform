@@ -1,0 +1,5 @@
+{
+  "name": "云原生核心平台 (Cloud Native Core)",
+  "description": "企业级云原生管理控制台，集成Kubernetes集群管理、应用部署、运维监控及AI辅助功能。",
+  "requestFramePermissions": []
+}
