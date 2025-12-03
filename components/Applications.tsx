@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Workload, Pod, Application, K8sEvent, AppLogEntry, ApplicationRevision, ApplicationTemplate, ScalingRule, ScheduledScalingRule, ScalingMetricType, Service, Ingress } from '../types';
+import { Workload, Pod, Application, K8sEvent, AppLogEntry, ApplicationRevision, ApplicationTemplate, ScalingRule, ScheduledScalingRule, ScalingMetricType, Service, Ingress, ApplicationScalingConfig } from '../types';
 import { 
   Box, Play, Pause, RefreshCw, Wand2, Copy, Check, Terminal, Cpu, Database, 
   Settings, ArrowLeft, History, RotateCcw, LayoutGrid, List, Activity, 
@@ -8,7 +8,7 @@ import {
   LayoutTemplate, Globe, Zap, Network, Scale, GitBranch, ArrowRight,
   Plus, Trash2, Edit, Monitor, FileText, Bell, Search, Clock, Server, Eye,
   TrendingUp, Calendar, Timer, Gauge, Power, Edit2, ShoppingBag, Download, Upload,
-  MoreHorizontal, Lock, Filter
+  MoreHorizontal, Lock, Filter, ArrowRight as ArrowRightIcon
 } from 'lucide-react';
 import { generateK8sManifest } from '../services/geminiService';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -113,7 +113,8 @@ export const Applications: React.FC = () => {
   
   // App Detail View State
   const [detailTab, setDetailTab] = useState<'overview' | 'pods' | 'logs' | 'events' | 'monitoring' | 'revisions' | 'topology' | 'scaling'>('overview');
-  
+  const [scalingConfig, setScalingConfig] = useState<ApplicationScalingConfig | undefined>(undefined);
+
   // Wizards & Modals
   const [isCreateWizardOpen, setIsCreateWizardOpen] = useState(false);
   const [createStep, setCreateStep] = useState(1);
@@ -122,6 +123,20 @@ export const Applications: React.FC = () => {
   const [isFilesOpen, setIsFilesOpen] = useState(false);
   const [isDeployTemplateOpen, setIsDeployTemplateOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<ApplicationTemplate | null>(null);
+
+  // Sync scaling config when app is selected
+  useEffect(() => {
+    if (selectedApp) {
+      setScalingConfig(selectedApp.scalingConfig || {
+        enabled: false,
+        minReplicas: 1,
+        maxReplicas: 1,
+        currentReplicas: 1,
+        metrics: [],
+        schedules: []
+      });
+    }
+  }, [selectedApp]);
 
   // --- Mock Functions for Interactions ---
   const handleTerminal = (pod: Pod) => {
@@ -139,7 +154,145 @@ export const Applications: React.FC = () => {
     setIsDeployTemplateOpen(true);
   };
 
-  // --- Render Wizards ---
+  // --- Render Functions ---
+
+  const renderScaling = () => {
+    if (!scalingConfig) return <div>No scaling config available</div>;
+
+    return (
+        <div className="space-y-6 animate-in fade-in">
+            {/* Basic Config */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex justify-between items-start mb-6">
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-800">弹性伸缩配置 (HPA)</h3>
+                        <p className="text-sm text-slate-500">自动调整 Pod 副本数量以应对流量波动。</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <span className={`text-sm font-bold ${scalingConfig.enabled ? 'text-blue-600' : 'text-slate-500'}`}>{scalingConfig.enabled ? '已启用' : '已禁用'}</span>
+                        <button 
+                            onClick={() => setScalingConfig({...scalingConfig, enabled: !scalingConfig.enabled})}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${scalingConfig.enabled ? 'bg-blue-600' : 'bg-slate-200'}`}
+                        >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${scalingConfig.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">最小副本数 (Min)</label>
+                        <input type="number" className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" value={scalingConfig.minReplicas} onChange={e => setScalingConfig({...scalingConfig, minReplicas: parseInt(e.target.value)})} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">最大副本数 (Max)</label>
+                        <input type="number" className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" value={scalingConfig.maxReplicas} onChange={e => setScalingConfig({...scalingConfig, maxReplicas: parseInt(e.target.value)})} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">当前副本数</label>
+                        <div className="w-full border border-slate-200 bg-slate-50 rounded-lg px-4 py-2 text-sm font-bold text-slate-700 flex items-center gap-2">
+                           <Box size={16} className="text-blue-600"/>
+                           {scalingConfig.currentReplicas} Pods
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Metrics */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                       <h4 className="font-bold text-slate-700 flex items-center gap-2"><Activity size={18}/> 指标规则 (Metrics)</h4>
+                       <p className="text-xs text-slate-500 mt-1">当指标超过目标值时触发扩容。</p>
+                    </div>
+                    <button className="text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 flex items-center gap-1 transition-colors">
+                        <Plus size={14}/> 添加指标
+                    </button>
+                </div>
+                
+                {scalingConfig.metrics.length > 0 ? (
+                    <div className="space-y-3">
+                        {scalingConfig.metrics.map(metric => (
+                            <div key={metric.id} className="flex items-center gap-4 p-4 border border-slate-200 rounded-xl bg-slate-50/50 hover:bg-white transition-colors">
+                                <div className="p-3 bg-white border border-slate-200 rounded-lg text-blue-600 shadow-sm">
+                                    {metric.metricType === 'CPU' ? <Cpu size={20}/> : metric.metricType === 'Memory' ? <Database size={20}/> : <Network size={20}/>}
+                                </div>
+                                <div className="flex-1">
+                                    <div className="font-bold text-sm text-slate-800 flex items-center gap-2">
+                                       {metric.metricType} 利用率
+                                       {metric.metricType === 'Custom' && <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">Custom</span>}
+                                    </div>
+                                    <div className="text-xs text-slate-500 mt-0.5">Target Average: <span className="font-mono font-medium text-slate-700">{metric.targetValue}{metric.unit}</span></div>
+                                </div>
+                                <button className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-8 text-slate-400 text-sm bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                        <Scale size={32} className="mx-auto mb-2 opacity-20"/>
+                        暂无指标规则，请添加
+                    </div>
+                )}
+            </div>
+
+            {/* Cron Schedules */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                 <div className="flex justify-between items-center mb-6">
+                    <div>
+                       <h4 className="font-bold text-slate-700 flex items-center gap-2"><Clock size={18}/> 定时扩缩容 (CronHPA)</h4>
+                       <p className="text-xs text-slate-500 mt-1">适用于有规律的业务高峰期，提前准备资源。</p>
+                    </div>
+                    <button className="text-sm bg-purple-50 text-purple-600 hover:bg-purple-100 px-3 py-1.5 rounded-lg border border-purple-200 flex items-center gap-1 transition-colors">
+                        <Plus size={14}/> 添加计划
+                    </button>
+                </div>
+
+                {scalingConfig.schedules.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {scalingConfig.schedules.map(schedule => (
+                            <div key={schedule.id} className="border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow relative overflow-hidden bg-white group">
+                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${schedule.enabled ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+                                <div className="flex justify-between items-start mb-3 pl-3">
+                                    <div>
+                                       <div className="font-bold text-slate-800">{schedule.name}</div>
+                                       <div className="text-xs text-slate-400 font-mono mt-0.5">{schedule.schedule}</div>
+                                    </div>
+                                    <div className={`relative inline-block w-8 h-4 rounded-full cursor-pointer transition-colors ${schedule.enabled ? 'bg-green-500' : 'bg-slate-300'}`}>
+                                        <span className={`absolute top-1 left-1 bg-white w-2 h-2 rounded-full transition-transform ${schedule.enabled ? 'translate-x-4' : ''}`} />
+                                    </div>
+                                </div>
+                                <div className="pl-3 pt-3 border-t border-slate-100 flex justify-between items-center">
+                                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                                       <TrendingUp size={16} className="text-blue-500"/> 
+                                       Target: <span className="font-bold text-slate-800">{schedule.targetReplicas}</span> Replicas
+                                    </div>
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                                       <button className="text-slate-400 hover:text-blue-600"><Edit size={14}/></button>
+                                       <button className="text-slate-400 hover:text-red-600"><Trash2 size={14}/></button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-8 text-slate-400 text-sm bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                        <Calendar size={32} className="mx-auto mb-2 opacity-20"/>
+                        暂无定时任务
+                    </div>
+                )}
+            </div>
+            
+            {/* Action Bar */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+               <button className="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg hover:bg-white text-sm font-medium transition-colors">取消更改</button>
+               <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center gap-2 shadow-sm transition-colors">
+                  <Settings size={16}/> 保存策略
+               </button>
+            </div>
+        </div>
+    );
+  };
   
   const renderCreateWizard = () => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
@@ -228,7 +381,7 @@ export const Applications: React.FC = () => {
                                   <input className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Req: 100m" />
                                   <span className="text-slate-400">/</span>
                                   <input className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Lim: 500m" />
-                               </div>
+                                </div>
                             </div>
                             <div>
                                <label className="block text-sm font-medium text-slate-700 mb-1">内存 请求/限制</label>
@@ -401,314 +554,4 @@ export const Applications: React.FC = () => {
           {mockTemplates.map(tpl => (
              <div key={tpl.id} className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md transition-shadow flex flex-col h-full">
                 <div className="flex items-start justify-between mb-4">
-                   <div className="w-12 h-12 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 border border-slate-100">
-                      {tpl.category === 'Database' ? <Database size={24}/> : tpl.category === 'Web Server' ? <Globe size={24}/> : <Package size={24}/>}
-                   </div>
-                   <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full">{tpl.category}</span>
-                </div>
-                <h3 className="font-bold text-slate-800 mb-2">{tpl.name}</h3>
-                <p className="text-sm text-slate-500 line-clamp-3 mb-4 flex-1">{tpl.description}</p>
-                <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-100">
-                   <span className="text-xs text-slate-400">{tpl.maintainer}</span>
-                   <button 
-                     onClick={() => handleDeployTemplate(tpl)}
-                     className="text-sm bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-100 font-medium transition-colors"
-                   >
-                      一键部署
-                   </button>
-                </div>
-             </div>
-          ))}
-       </div>
-    </div>
-  );
-
-  const renderWorkloads = () => (
-    <div className="space-y-6">
-       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-             <h3 className="font-bold text-slate-700">工作负载总览 (All Namespaces)</h3>
-             <div className="flex gap-2">
-                <button className="bg-white border border-slate-300 px-3 py-1.5 rounded text-sm text-slate-600 hover:bg-slate-50"><Filter size={14}/></button>
-                <button className="bg-white border border-slate-300 px-3 py-1.5 rounded text-sm text-slate-600 hover:bg-slate-50"><RefreshCw size={14}/></button>
-             </div>
-          </div>
-          <table className="w-full text-left text-sm">
-             <thead className="bg-slate-50 text-slate-500 font-medium">
-                <tr>
-                   <th className="px-6 py-3">Name</th>
-                   <th className="px-6 py-3">Type</th>
-                   <th className="px-6 py-3">Namespace</th>
-                   <th className="px-6 py-3">Pods</th>
-                   <th className="px-6 py-3">Image</th>
-                   <th className="px-6 py-3">Resources</th>
-                   <th className="px-6 py-3 text-right">Actions</th>
-                </tr>
-             </thead>
-             <tbody className="divide-y divide-slate-100">
-                {mockWorkloads.map(wl => (
-                   <tr key={wl.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 font-medium text-slate-800">{wl.name}</td>
-                      <td className="px-6 py-4"><span className="px-2 py-0.5 bg-slate-100 rounded text-xs text-slate-600">{wl.type}</span></td>
-                      <td className="px-6 py-4 text-slate-500">{wl.namespace}</td>
-                      <td className="px-6 py-4">
-                         <div className="flex items-center gap-2">
-                            <span className={`text-xs font-bold ${wl.availableReplicas === wl.replicas ? 'text-green-600' : 'text-orange-600'}`}>{wl.availableReplicas}/{wl.replicas}</span>
-                            <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                               <div className={`h-full ${wl.availableReplicas === wl.replicas ? 'bg-green-500' : 'bg-orange-500'}`} style={{width: `${(wl.availableReplicas/wl.replicas)*100}%`}}></div>
-                            </div>
-                         </div>
-                      </td>
-                      <td className="px-6 py-4 font-mono text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded w-fit">{wl.image}</td>
-                      <td className="px-6 py-4 text-xs text-slate-500">{wl.cpuRequest} / {wl.memRequest}</td>
-                      <td className="px-6 py-4 text-right">
-                         <button className="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-xs font-medium border border-transparent hover:border-blue-100 transition-colors">
-                            弹性伸缩
-                         </button>
-                      </td>
-                   </tr>
-                ))}
-             </tbody>
-          </table>
-       </div>
-    </div>
-  );
-
-  const renderServicesRoutes = () => (
-    <div className="space-y-8">
-       {/* Services Table */}
-       <div>
-          <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Layers size={20} className="text-blue-600"/> Services</h3>
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-             <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-slate-500 font-medium">
-                   <tr>
-                      <th className="px-6 py-3">Name</th>
-                      <th className="px-6 py-3">Type</th>
-                      <th className="px-6 py-3">Cluster IP</th>
-                      <th className="px-6 py-3">Ports</th>
-                      <th className="px-6 py-3">Selector</th>
-                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                   {mockServices.map(svc => (
-                      <tr key={svc.id} className="hover:bg-slate-50">
-                         <td className="px-6 py-4 font-medium text-slate-800">{svc.name}</td>
-                         <td className="px-6 py-4"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs border border-blue-100">{svc.type}</span></td>
-                         <td className="px-6 py-4 font-mono text-slate-600">{svc.clusterIP}</td>
-                         <td className="px-6 py-4 font-mono text-xs">{svc.ports.join(', ')}</td>
-                         <td className="px-6 py-4 font-mono text-xs text-slate-500">{JSON.stringify(svc.selector)}</td>
-                      </tr>
-                   ))}
-                </tbody>
-             </table>
-          </div>
-       </div>
-
-       {/* Ingress Table */}
-       <div>
-          <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Globe size={20} className="text-purple-600"/> Ingress Routes</h3>
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-             <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-slate-500 font-medium">
-                   <tr>
-                      <th className="px-6 py-3">Name</th>
-                      <th className="px-6 py-3">Load Balancer</th>
-                      <th className="px-6 py-3">Rules (Host -> Backend)</th>
-                      <th className="px-6 py-3">TLS</th>
-                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                   {mockIngresses.map(ing => (
-                      <tr key={ing.id} className="hover:bg-slate-50">
-                         <td className="px-6 py-4 font-medium text-slate-800">{ing.name}</td>
-                         <td className="px-6 py-4 font-mono text-slate-600">{ing.loadBalancerIP}</td>
-                         <td className="px-6 py-4">
-                            <div className="space-y-1">
-                               {ing.rules.map((r, i) => (
-                                  <div key={i} className="text-xs font-mono bg-slate-50 px-2 py-1 rounded border border-slate-100">
-                                     {r.host}{r.path} -> {r.backend}
-                                  </div>
-                               ))}
-                            </div>
-                         </td>
-                         <td className="px-6 py-4">
-                            {ing.tls ? <span className="flex items-center gap-1 text-green-600 text-xs font-bold"><Lock size={12}/> Enabled</span> : <span className="text-slate-400 text-xs">Disabled</span>}
-                         </td>
-                      </tr>
-                   ))}
-                </tbody>
-             </table>
-          </div>
-       </div>
-    </div>
-  );
-
-  // --- App Detail View ---
-  if (selectedApp) {
-     return (
-       <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-          <div className="flex items-center gap-4">
-             <button onClick={() => setSelectedApp(null)} className="p-2 hover:bg-slate-200 rounded-full text-slate-500 transition-colors">
-                <ArrowLeft size={20}/>
-             </button>
-             <div className="flex-1">
-                <div className="flex items-center gap-3">
-                   <h2 className="text-2xl font-bold text-slate-800">{selectedApp.name}</h2>
-                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${selectedApp.status === 'Healthy' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {selectedApp.status}
-                   </span>
-                </div>
-                <p className="text-sm text-slate-500 mt-1">Namespace: {selectedApp.namespace} | Version: {selectedApp.version}</p>
-             </div>
-             <div className="flex gap-3">
-                <button className="bg-white border border-slate-300 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
-                   <FileText size={16}/> 查看 YAML
-                </button>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
-                   <RefreshCw size={16}/> 更新应用
-                </button>
-                <button className="bg-white border border-red-200 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
-                   <Trash2 size={16}/>
-                </button>
-             </div>
-          </div>
-
-          <div className="border-b border-slate-200 flex gap-6 overflow-x-auto">
-             {[
-                { id: 'overview', label: '概览', icon: <LayoutGrid size={16}/> },
-                { id: 'topology', label: '拓扑图', icon: <Network size={16}/> },
-                { id: 'pods', label: '容器组', icon: <Box size={16}/> },
-                { id: 'scaling', label: '弹性伸缩', icon: <Scale size={16}/> },
-                { id: 'revisions', label: '版本回滚', icon: <History size={16}/> },
-                { id: 'monitoring', label: '监控告警', icon: <Activity size={16}/> },
-             ].map(tab => (
-                <button key={tab.id} onClick={() => setDetailTab(tab.id as any)} className={`pb-3 pt-1 px-1 text-sm font-medium flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${detailTab === tab.id ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
-                   {tab.icon} {tab.label}
-                </button>
-             ))}
-          </div>
-
-          <div className="min-h-[500px]">
-             {detailTab === 'overview' && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                   <div className="lg:col-span-2 space-y-6">
-                      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                         <h3 className="font-bold text-slate-700 mb-4">资源拓扑简略</h3>
-                         <div className="flex items-center justify-center gap-12 py-8 bg-slate-50 rounded-lg border border-slate-100">
-                            <div className="text-center">
-                               <div className="w-16 h-16 bg-white border-2 border-purple-200 rounded-full flex items-center justify-center mx-auto mb-2 text-purple-600 shadow-sm"><Globe size={32}/></div>
-                               <span className="text-sm font-bold text-slate-700">Ingress</span>
-                            </div>
-                            <div className="h-px w-16 bg-slate-300"></div>
-                            <div className="text-center">
-                               <div className="w-16 h-16 bg-white border-2 border-blue-200 rounded-full flex items-center justify-center mx-auto mb-2 text-blue-600 shadow-sm"><Layers size={32}/></div>
-                               <span className="text-sm font-bold text-slate-700">Service</span>
-                            </div>
-                            <div className="h-px w-16 bg-slate-300"></div>
-                            <div className="text-center">
-                               <div className="w-16 h-16 bg-white border-2 border-green-200 rounded-full flex items-center justify-center mx-auto mb-2 text-green-600 shadow-sm"><Box size={32}/></div>
-                               <span className="text-sm font-bold text-slate-700">Pods (3)</span>
-                            </div>
-                         </div>
-                      </div>
-                   </div>
-                   <div className="space-y-6">
-                      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                         <h3 className="font-bold text-slate-700 mb-4">应用信息</h3>
-                         <dl className="space-y-3 text-sm">
-                            <div className="flex justify-between"><dt className="text-slate-500">Created</dt><dd className="font-medium">{selectedApp.createdAt}</dd></div>
-                            <div className="flex justify-between"><dt className="text-slate-500">Image</dt><dd className="font-mono bg-slate-100 px-1 rounded">nginx:alpine</dd></div>
-                            <div className="flex justify-between"><dt className="text-slate-500">Health</dt><dd className="text-green-600 font-bold">{selectedApp.healthScore}</dd></div>
-                         </dl>
-                      </div>
-                   </div>
-                </div>
-             )}
-
-             {detailTab === 'pods' && (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                   <table className="w-full text-left text-sm">
-                      <thead className="bg-slate-50 text-slate-500 font-medium">
-                         <tr>
-                            <th className="px-6 py-3">Pod Name</th>
-                            <th className="px-6 py-3">Node</th>
-                            <th className="px-6 py-3">Status</th>
-                            <th className="px-6 py-3">IP</th>
-                            <th className="px-6 py-3">Usage (CPU/Mem)</th>
-                            <th className="px-6 py-3 text-right">Actions</th>
-                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                         {mockPods.map(pod => (
-                            <tr key={pod.id} className="hover:bg-slate-50">
-                               <td className="px-6 py-4 font-medium text-slate-800">{pod.name}</td>
-                               <td className="px-6 py-4 text-slate-600">{pod.node}</td>
-                               <td className="px-6 py-4"><span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">{pod.status}</span></td>
-                               <td className="px-6 py-4 font-mono text-slate-600">{pod.ip}</td>
-                               <td className="px-6 py-4 text-xs text-slate-500">{pod.cpuUsage} / {pod.memUsage}</td>
-                               <td className="px-6 py-4 text-right flex justify-end gap-2">
-                                  <button onClick={() => handleTerminal(pod)} className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-800 rounded transition-colors" title="Terminal"><Terminal size={16}/></button>
-                                  <button onClick={() => handleFiles(pod)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Files"><Upload size={16}/></button>
-                                  <button className="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Logs"><FileText size={16}/></button>
-                               </td>
-                            </tr>
-                         ))}
-                      </tbody>
-                   </table>
-                </div>
-             )}
-             
-             {/* Other tabs can be placeholders or reused from previous implementations */}
-             {detailTab === 'monitoring' && (
-                <div className="bg-white p-12 text-center text-slate-400 border border-slate-200 rounded-xl">
-                   <Activity size={48} className="mx-auto mb-4 opacity-20"/>
-                   <p>监控仪表板集成中...</p>
-                </div>
-             )}
-          </div>
-
-          {/* Terminal Modal */}
-          {isTerminalOpen && renderTerminal()}
-       </div>
-     );
-  }
-
-  // --- Main Layout ---
-  return (
-    <div className="space-y-6">
-       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-             <h2 className="text-2xl font-bold text-slate-800">应用交付中心</h2>
-             <p className="text-slate-500 text-sm mt-1">一站式管理应用全生命周期：原生应用、模板商店、工作负载与服务治理。</p>
-          </div>
-       </div>
-
-       <div className="border-b border-slate-200 flex gap-8">
-          {[
-             { id: 'native', label: '原生应用 (Native Apps)', icon: <Box size={18}/> },
-             { id: 'store', label: '模板商店 (App Store)', icon: <ShoppingBag size={18}/> },
-             { id: 'workloads', label: '工作负载 (Workloads)', icon: <Server size={18}/> },
-             { id: 'network', label: '服务与路由 (Services)', icon: <Network size={18}/> },
-          ].map(tab => (
-             <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`pb-3 pt-1 px-1 text-sm font-bold flex items-center gap-2 border-b-2 transition-colors ${activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-             >
-                {tab.icon} {tab.label}
-             </button>
-          ))}
-       </div>
-
-       <div className="min-h-[600px]">
-          {activeTab === 'native' && renderNativeApps()}
-          {activeTab === 'store' && renderTemplateStore()}
-          {activeTab === 'workloads' && renderWorkloads()}
-          {activeTab === 'network' && renderServicesRoutes()}
-       </div>
-
-       {isCreateWizardOpen && renderCreateWizard()}
-    </div>
-  );
-};
+                   <div className="w-12 h-12 bg-slate-50 rounded-lg flex items-center justify-center text-slate-4
