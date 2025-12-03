@@ -1,4 +1,5 @@
 
+
 export enum ClusterStatus {
   RUNNING = 'Running',
   WARNING = 'Warning',
@@ -99,6 +100,62 @@ export interface ProjectMember {
 }
 
 // --- Application / Workload Types ---
+
+export interface Application {
+  id: string;
+  name: string;
+  namespace: string;
+  version: string;
+  status: 'Healthy' | 'Degraded' | 'Progressing' | 'Stopped';
+  healthScore: number;
+  description?: string;
+  resources: {
+    workloads: string[]; // Workload IDs
+    services: string[];  // Service IDs
+    ingresses: string[]; // Ingress IDs
+    configMaps: string[]; // ConfigMap IDs
+  };
+  metrics?: {
+    cpu: string;
+    memory: string;
+    requests: string; // RPS
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApplicationRevision {
+  revision: number;
+  image: string;
+  message: string;
+  createdAt: string;
+  current: boolean;
+}
+
+export interface ApplicationTemplate {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  category: string;
+  icon?: string; // Icon name or URL
+}
+
+export interface K8sEvent {
+  id: string;
+  type: 'Normal' | 'Warning';
+  reason: string;
+  message: string;
+  object: string;
+  count: number;
+  lastSeen: string;
+}
+
+export interface AppLogEntry {
+  timestamp: string;
+  level: 'INFO' | 'WARN' | 'ERROR';
+  message: string;
+}
 
 export interface Workload {
   id: string;
@@ -294,15 +351,104 @@ export interface CephPool {
   pgNum: number;
   used: string;
   status: 'Healthy' | 'Degraded';
+  deviceClass?: 'ssd' | 'hdd' | 'nvme';
+}
+
+export interface CephOsd {
+  id: number;
+  host: string;
+  status: 'Up' | 'Down';
+  in: boolean;
+  deviceClass: 'ssd' | 'hdd' | 'nvme';
+  size: string;
+  usedPercent: number;
+}
+
+export interface CephDeploymentConfig {
+  name: string;
+  namespace: string;
+  nodes: string[];
+  useAllDevices: boolean;
+  deviceFilter: string;
+  networkMode: 'host' | 'overlay';
+}
+
+export interface CephCrushNode {
+  id: number;
+  name: string;
+  type: 'root' | 'datacenter' | 'rack' | 'host' | 'osd';
+  status?: 'up' | 'down';
+  weight: number;
+  items?: CephCrushNode[];
+}
+
+export interface CephAlertPolicy {
+  id: string;
+  name: string;
+  metric: 'capacity' | 'osd_status' | 'latency' | 'recovery';
+  operator: '>' | '<' | '=';
+  threshold: string;
+  level: 'Warning' | 'Critical';
+  enabled: boolean;
 }
 
 // Minio Specific
+export interface MinioTenant {
+  name: string;
+  namespace: string;
+  status: 'Healthy' | 'Degraded' | 'Initializing';
+  nodes: number;
+  capacity: string;
+  used: string;
+  version: string;
+  pools: number;
+}
+
 export interface MinioBucket {
   name: string;
   objects: number;
   size: string;
+  quota: string;
   policy: 'Public' | 'Private' | 'Custom';
+  createdAt?: string;
+  versioning?: boolean;
+  retention?: string;
+}
+
+export interface MinioUser {
+  accessKey: string;
+  policy: string;
+  status: 'Active' | 'Disabled';
   createdAt: string;
+}
+
+// Topolvm Specific
+export interface TopolvmNode {
+  name: string;
+  ip: string;
+  vgName: string;
+  device: string;
+  total: string;
+  used: string;
+  status: 'Ready' | 'NotReady';
+}
+
+export interface TopolvmLogicalVolume {
+  id: string;
+  name: string;
+  node: string;
+  size: string;
+  deviceClass: string;
+  status: 'Active' | 'Inactive';
+  pvcRef?: string;
+  createdAt: string;
+}
+
+export interface TopolvmDeviceClass {
+  name: string;
+  volumeGroup: string;
+  default: boolean;
+  spareGb: number;
 }
 
 // COSI (Container Object Storage Interface)
