@@ -190,36 +190,7 @@ export enum View {
   SETTINGS = 'settings'
 }
 
-// --- Application Management Types ---
-
-export interface ApplicationTemplate {
-  id: string;
-  name: string;
-  description: string;
-  version: string;
-  category: string;
-  maintainer: string;
-  icon: string;
-}
-
-export interface ApplicationScalingConfig {
-  enabled: boolean;
-  minReplicas: number;
-  maxReplicas: number;
-  currentReplicas: number;
-  metrics: { id: string; metricType: string; targetValue: number; unit: string; }[];
-  schedules: { id: string; name: string; schedule: string; targetReplicas: number; enabled: boolean; }[];
-}
-
-export interface ApplicationRevision {
-  revision: number;
-  image: string;
-  message: string;
-  createdAt: string;
-  current: boolean;
-}
-
-// --- Middleware Management Types (Kafka) ---
+// --- Middleware Management Types (Kafka/Redis/RabbitMQ) ---
 
 export interface KafkaInstance {
   id: string;
@@ -232,6 +203,39 @@ export interface KafkaInstance {
   memory: string;
   storage: string;
   configTemplateId: string;
+}
+
+export interface RedisInstance {
+  id: string;
+  name: string;
+  version: string;
+  architecture: 'Sentinel' | 'Cluster' | 'Standalone';
+  status: 'Running' | 'Stopped' | 'Provisioning' | 'Upgrading';
+  endpoint: string;
+  nodes: number;
+  cpu: string;
+  memory: string;
+  storage: string;
+}
+
+export interface RabbitMQInstance {
+  id: string;
+  name: string;
+  version: string;
+  status: 'Running' | 'Stopped' | 'Provisioning';
+  nodes: number;
+  queues: number;
+  consumers: number;
+  endpoint: string;
+}
+
+export interface MiddlewareBackup {
+  id: string;
+  timestamp: string;
+  size: string;
+  status: 'Success' | 'Failed' | 'In-Progress';
+  type: 'Automatic' | 'Manual';
+  target: 'PVC' | 'S3';
 }
 
 export interface KafkaConfigTemplate {
@@ -610,4 +614,61 @@ export interface MonitoringPanel { id: string; title: string; type: string; metr
 export interface MonitoringDashboard { id: string; name: string; source: string; panels: MonitoringPanel[]; }
 export interface Workload { id: string; name: string; type: string; namespace: string; replicas: number; availableReplicas: number; image: string; status: string; cpuRequest: string; memRequest: string; createdAt: string; }
 export interface Pod { id: string; name: string; namespace: string; node: string; status: string; restarts: number; age: string; ip: string; cpuUsage: string; memUsage: string; }
-export interface Application { id: string; name: string; namespace: string; version: string; status: string; healthScore: number; description: string; resources: any; metrics: any; scalingConfig: any; createdAt: string; updatedAt: string; }
+
+// --- Application Specific Types ---
+export interface ApplicationScalingMetric {
+  id: string;
+  metricType: string;
+  targetValue: number;
+  unit: string;
+}
+
+export interface ApplicationScalingSchedule {
+  id: string;
+  name: string;
+  schedule: string;
+  targetReplicas: number;
+  enabled: boolean;
+}
+
+export interface ApplicationScalingConfig {
+  enabled: boolean;
+  minReplicas: number;
+  maxReplicas: number;
+  currentReplicas: number;
+  metrics: ApplicationScalingMetric[];
+  schedules: ApplicationScalingSchedule[];
+}
+
+export interface ApplicationRevision {
+  revision: number;
+  image: string;
+  message: string;
+  createdAt: string;
+  current: boolean;
+}
+
+export interface ApplicationTemplate {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  category: string;
+  maintainer: string;
+  icon: string;
+}
+
+export interface Application {
+  id: string;
+  name: string;
+  namespace: string;
+  version: string;
+  status: string;
+  healthScore: number;
+  description: string;
+  resources: any;
+  metrics: any;
+  scalingConfig: ApplicationScalingConfig;
+  createdAt: string;
+  updatedAt: string;
+}

@@ -19,9 +19,29 @@ import {
   MessageCircle, Settings2, UserCog, ChevronDown, Gitlab, Github, Bug, 
   FileCode, SearchCode, FileSearch, LineChart, BarChart as BarChartIcon, 
   LayoutTemplate, FileOutput, Copy, Upload, File, GitBranch as BranchIcon,
-  Sun, CheckCircle, Info, ChevronUp, AlertOctagon, Gauge
+  Sun, CheckCircle, Info, ChevronUp, AlertOctagon, Gauge, ShieldX, Scan, Fingerprint as ScanIcon, HardDrive
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart as ReLineChart, Line, BarChart, Bar, Cell, PieChart, Pie } from 'recharts';
+
+// --- Mock Data for Security ---
+
+const mockSecurityEngines = [
+  { id: 'sq', name: 'SonarQube', lang: 'General', type: 'SAST', status: 'Enabled', lastScan: '2h ago', gate: 'Passed' },
+  { id: 'gl', name: 'Golangci-lint', lang: 'Golang', type: 'Linter', status: 'Enabled', lastScan: '1d ago', gate: 'Passed' },
+  { id: 'sb', name: 'SpotBugs', lang: 'Java', type: 'SAST', status: 'Enabled', lastScan: '3h ago', gate: 'Failed' },
+  { id: 'f8', name: 'Flake8', lang: 'Python', type: 'Linter', status: 'Disabled', lastScan: '-', gate: '-' },
+];
+
+const mockImageScans = [
+  { id: 'img-1', name: 'mall-frontend-ui', tag: 'v1.2.5', status: 'Healthy', critical: 0, high: 2, medium: 15, time: '10-30 15:45' },
+  { id: 'img-2', name: 'auth-service-core', tag: 'v2.1.0', status: 'Risk', critical: 2, high: 8, medium: 24, time: '10-30 14:20' },
+  { id: 'img-3', name: 'payment-gateway', tag: 'latest', status: 'Healthy', critical: 0, high: 0, medium: 5, time: '10-30 09:00' },
+];
+
+const mockVulnerabilities = [
+  { id: 'CVE-2023-1234', severity: 'Critical', package: 'openssl', version: '1.1.1t', fixed: '1.1.1u', desc: 'Buffer overflow in SSL handshake' },
+  { id: 'CVE-2023-5678', severity: 'High', package: 'libxml2', version: '2.9.10', fixed: '2.9.12', desc: 'Use-after-free in XML parser' },
+];
 
 // --- Mock Data for Metrics ---
 
@@ -72,8 +92,6 @@ const mockTopFailedPipelines = [
   { name: 'temp-cleanup-job', count: 4, rate: 10 },
   { name: 'cron-backup-s3', count: 3, rate: 5 },
 ];
-
-// --- Added Mock Data for Pipelines, Artifacts, etc. ---
 
 const mockPipelines: DevOpsPipeline[] = [
   { id: 'p-1', name: 'mall-frontend-ci', repo: 'mall-frontend', lastStatus: 'Success', lastRunTime: '2023-10-30 15:45', avgDuration: '3m 20s', successRate: 98 },
@@ -143,6 +161,184 @@ const mockBranches = [
 ];
 
 // --- Sub Components ---
+
+const SecurityManagement: React.FC = () => {
+  const [secTab, setSecTab] = useState<'code' | 'image'>('code');
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="flex justify-between items-center px-2">
+        <div className="flex gap-10 overflow-x-auto">
+          {[
+            { id: 'code', label: '代码扫描', icon: <Code size={18}/> },
+            { id: 'image', label: '镜像扫描', icon: <ScanIcon size={18}/> },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setSecTab(tab.id as any)}
+              className={`pb-4 pt-1 px-1 text-sm font-black flex items-center gap-3 border-b-4 transition-all uppercase tracking-widest ${
+                secTab === tab.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-700'
+              }`}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+           <button className="bg-white border border-slate-200 px-4 py-2 rounded-2xl shadow-sm text-xs font-black text-indigo-600 hover:bg-slate-50 flex items-center gap-2">
+              <Settings size={14}/> 全局策略配置
+           </button>
+        </div>
+      </div>
+
+      {secTab === 'code' ? (
+        <div className="space-y-8">
+           {/* Code Scanning Engines Grid */}
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {mockSecurityEngines.map(engine => (
+                <div key={engine.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl transition-all group">
+                   <div className="flex justify-between items-start mb-6">
+                      <div className={`p-4 rounded-2xl ${engine.status === 'Enabled' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400'}`}>
+                         {engine.id === 'sq' ? <Activity size={24}/> : <Terminal size={24}/>}
+                      </div>
+                      <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${engine.status === 'Enabled' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                         {engine.status}
+                      </div>
+                   </div>
+                   <h4 className="text-xl font-black text-slate-800">{engine.name}</h4>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{engine.lang} • {engine.type}</p>
+                   
+                   <div className="mt-6 pt-6 border-t border-slate-50 flex justify-between items-center">
+                      <div>
+                         <div className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Quality Gate</div>
+                         <div className={`text-sm font-black mt-0.5 ${engine.gate === 'Passed' ? 'text-emerald-500' : engine.gate === 'Failed' ? 'text-red-500' : 'text-slate-400'}`}>
+                            {engine.gate}
+                         </div>
+                      </div>
+                      <button className="p-2 text-slate-300 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"><Settings size={18}/></button>
+                   </div>
+                </div>
+              ))}
+           </div>
+
+           {/* Recent Code Scan List */}
+           <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
+              <div className="px-10 py-8 border-b border-slate-50 flex justify-between items-center">
+                 <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
+                    <ShieldCheck size={24} className="text-indigo-600" /> 代码扫描审计历史
+                 </h3>
+                 <div className="flex gap-4">
+                    <div className="relative">
+                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                       <input placeholder="搜索代码库..." className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    </div>
+                 </div>
+              </div>
+              <table className="w-full text-left">
+                 <thead className="bg-slate-50/50 text-slate-400 font-black uppercase tracking-widest text-[10px]">
+                    <tr>
+                       <th className="px-10 py-5">项目/代码库</th>
+                       <th className="px-6 py-5">引擎</th>
+                       <th className="px-6 py-5">质量门状态</th>
+                       <th className="px-6 py-5">缺陷/漏洞</th>
+                       <th className="px-10 py-5 text-right">最后扫描时间</th>
+                    </tr>
+                 </thead>
+                 <tbody className="divide-y divide-slate-50">
+                    {mockLatestScans.map(scan => (
+                       <tr key={scan.repo} className="hover:bg-slate-50/50 transition-colors group cursor-pointer">
+                          <td className="px-10 py-6 font-black text-slate-700">{scan.repo}</td>
+                          <td className="px-6 py-6">
+                             <span className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter">SonarQube</span>
+                          </td>
+                          <td className="px-6 py-6">
+                             <div className={`flex items-center gap-2 font-black text-xs ${scan.status === 'Pass' ? 'text-emerald-500' : 'text-red-500'}`}>
+                                {scan.status === 'Pass' ? <CheckCircle size={14}/> : <XCircle size={14}/>}
+                                {scan.status === 'Pass' ? 'Gate Passed' : 'Gate Failed'}
+                             </div>
+                          </td>
+                          <td className="px-6 py-6">
+                             <div className="flex gap-3 text-[10px] font-mono">
+                                <span className="text-orange-500 font-black">Bugs: {scan.bugs}</span>
+                                <span className="text-red-500 font-black">Vulns: {scan.vuln}</span>
+                             </div>
+                          </td>
+                          <td className="px-10 py-6 text-right text-xs text-slate-400 font-bold uppercase">{scan.time}</td>
+                       </tr>
+                    ))}
+                 </tbody>
+              </table>
+           </div>
+        </div>
+      ) : (
+        <div className="space-y-8">
+           {/* Image Security Summary */}
+           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-6">
+                 <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="px-10 py-8 border-b border-slate-50 flex justify-between items-center">
+                       <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
+                          <Package size={24} className="text-pink-500" /> 已扫描镜像列表
+                       </h3>
+                    </div>
+                    <div className="divide-y divide-slate-50">
+                       {mockImageScans.map(img => (
+                          <div key={img.id} className="px-10 py-8 hover:bg-slate-50/50 transition-colors group flex items-center justify-between">
+                             <div className="flex items-center gap-6">
+                                <div className={`p-4 rounded-[20px] ${img.status === 'Healthy' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                   <Monitor size={28}/>
+                                </div>
+                                <div>
+                                   <h4 className="text-lg font-black text-slate-800">{img.name} <span className="text-slate-400 text-xs font-mono ml-2">:{img.tag}</span></h4>
+                                   <div className="flex items-center gap-4 mt-2">
+                                      <div className="flex gap-2">
+                                         <span className="text-[10px] font-black text-red-500 bg-red-50 px-2 py-0.5 rounded uppercase">Critical: {img.critical}</span>
+                                         <span className="text-[10px] font-black text-orange-500 bg-orange-50 px-2 py-0.5 rounded uppercase">High: {img.high}</span>
+                                      </div>
+                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{img.time}</span>
+                                   </div>
+                                </div>
+                             </div>
+                             <button className="bg-indigo-600 text-white px-6 py-2 rounded-xl text-xs font-black shadow-lg shadow-indigo-100 opacity-0 group-hover:opacity-100 transition-all">查看漏洞报告</button>
+                          </div>
+                       ))}
+                    </div>
+                 </div>
+              </div>
+
+              {/* Vulnerability Highlight */}
+              <div className="space-y-6">
+                 <div className="bg-slate-900 rounded-[40px] p-8 text-white shadow-xl relative overflow-hidden flex flex-col justify-between h-full min-h-[400px]">
+                    <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl"></div>
+                    <div>
+                       <div className="p-4 bg-white/10 w-fit rounded-2xl mb-8 backdrop-blur-md"><ShieldAlert size={32} className="text-red-400"/></div>
+                       <h3 className="text-2xl font-black mb-4">关键漏洞威胁情报</h3>
+                       <p className="text-slate-400 text-sm leading-relaxed mb-10">
+                          发现 2 个关键 (Critical) CVE 漏洞影响基础架构组件，建议立即执行镜像更新修复。
+                       </p>
+                       <div className="space-y-4">
+                          {mockVulnerabilities.map(v => (
+                             <div key={v.id} className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                                <div className="flex justify-between items-center mb-1">
+                                   <span className="text-red-400 font-mono font-black text-xs">{v.id}</span>
+                                   <span className="text-[10px] font-black uppercase text-slate-500">{v.severity}</span>
+                                </div>
+                                <div className="text-xs text-slate-300 font-bold">{v.package} {v.version} &rarr; <span className="text-emerald-400">{v.fixed}</span></div>
+                             </div>
+                          ))}
+                       </div>
+                    </div>
+                    <button className="mt-10 w-full py-4 bg-red-500 text-white rounded-2xl font-black hover:bg-red-600 transition-all shadow-xl flex items-center justify-center gap-2">
+                       批量修复流水线 <ArrowRight size={20}/>
+                    </button>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const MetricsOverview: React.FC<{ timeRange: string }> = ({ timeRange }) => {
   const [pipelineRange, setPipelineRange] = useState('7天');
@@ -1286,6 +1482,7 @@ export const DevOps: React.FC = () => {
         )}
         {activeSubView === 'artifacts' && renderArtifacts()}
         {activeSubView === 'metrics' && renderMetrics()}
+        {activeSubView === 'security' && <SecurityManagement />}
         {activeSubView === 'cd' && (
            <div className="flex h-full min-h-[600px] -mx-8 bg-slate-50/50">
               <div className="w-64 bg-white border-r border-slate-200 p-6 flex flex-col h-[calc(100vh-280px)] overflow-y-auto shrink-0">
@@ -1318,12 +1515,6 @@ export const DevOps: React.FC = () => {
                     </div>
                  )}
               </div>
-           </div>
-        )}
-        {(activeSubView === 'security') && (
-           <div className="flex flex-col items-center justify-center py-40 text-slate-300 px-2">
-              <Construction size={80} className="opacity-10 mb-4 animate-bounce" />
-              <p className="font-black uppercase text-xs">模块 {activeSubView} 建设中...</p>
            </div>
         )}
       </div>

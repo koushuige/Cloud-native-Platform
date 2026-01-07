@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { View } from '../types';
-import { LayoutDashboard, Server, Activity, AppWindow, Database, Settings, Cloud, User, Bell, Network, HardDrive, Zap } from 'lucide-react';
+import { LayoutDashboard, Server, Activity, AppWindow, Database, Settings, Cloud, User, Bell, Network, HardDrive, Zap, MessageSquare } from 'lucide-react';
 
 interface LayoutProps {
   currentView: View;
@@ -91,7 +91,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, setCurrentView, chi
           <NavItem 
             active={currentView === View.MIDDLEWARE} 
             icon={<Database size={20} />} 
-            label="中间件/Kafka" 
+            label="云原生技术组件" 
             onClick={() => setCurrentView(View.MIDDLEWARE)} 
           />
         </nav>
