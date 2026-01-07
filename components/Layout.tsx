@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { View } from '../types';
-import { LayoutDashboard, Server, Activity, AppWindow, Database, Settings, Cloud, User, Bell, Network, HardDrive, Zap, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Server, Activity, AppWindow, Database, Settings, Cloud, User, Bell, Network, HardDrive, Zap, MessageSquare, ShieldCheck, Share2 } from 'lucide-react';
 
 interface LayoutProps {
   currentView: View;
@@ -24,7 +24,7 @@ const NavItem: React.FC<{
     }`}
   >
     {icon}
-    <span className="font-medium">{label}</span>
+    <span className="font-medium text-sm">{label}</span>
   </button>
 );
 
@@ -40,8 +40,8 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, setCurrentView, chi
           <h1 className="text-xl font-bold text-slate-800 tracking-tight">Cloud Native</h1>
         </div>
 
-        <nav className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto">
-          <div className="text-xs font-semibold text-slate-400 px-4 mb-2 uppercase tracking-wider">Platform</div>
+        <nav className="flex-1 px-4 space-y-1 mt-4 overflow-y-auto scrollbar-hide">
+          <div className="text-[10px] font-black text-slate-400 px-4 mb-2 uppercase tracking-widest">Platform</div>
           <NavItem 
             active={currentView === View.DASHBOARD} 
             icon={<LayoutDashboard size={20} />} 
@@ -61,7 +61,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, setCurrentView, chi
             onClick={() => setCurrentView(View.OPERATIONS)} 
           />
           
-          <div className="text-xs font-semibold text-slate-400 px-4 mb-2 mt-6 uppercase tracking-wider">Container Resources</div>
+          <div className="text-[10px] font-black text-slate-400 px-4 mb-2 mt-6 uppercase tracking-widest">Resources</div>
            <NavItem 
             active={currentView === View.NETWORK} 
             icon={<Network size={20} />} 
@@ -75,12 +75,18 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, setCurrentView, chi
             onClick={() => setCurrentView(View.STORAGE)} 
           />
 
-          <div className="text-xs font-semibold text-slate-400 px-4 mb-2 mt-6 uppercase tracking-wider">Services</div>
+          <div className="text-[10px] font-black text-slate-400 px-4 mb-2 mt-6 uppercase tracking-widest">Delivery & Governance</div>
           <NavItem 
             active={currentView === View.APPLICATIONS} 
             icon={<AppWindow size={20} />} 
             label="应用交付" 
             onClick={() => setCurrentView(View.APPLICATIONS)} 
+          />
+          <NavItem 
+            active={currentView === View.MICROSERVICES} 
+            icon={<Share2 size={20} />} 
+            label="微服务治理" 
+            onClick={() => setCurrentView(View.MICROSERVICES)} 
           />
           <NavItem 
             active={currentView === View.DEVOPS} 
@@ -91,7 +97,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, setCurrentView, chi
           <NavItem 
             active={currentView === View.MIDDLEWARE} 
             icon={<Database size={20} />} 
-            label="云原生技术组件" 
+            label="云原生组件" 
             onClick={() => setCurrentView(View.MIDDLEWARE)} 
           />
         </nav>
