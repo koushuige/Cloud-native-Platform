@@ -1,24 +1,25 @@
-import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+import { GoogleGenAI } from "@google/genai";
 
 export const analyzeLogEntry = async (logData: string): Promise<string> => {
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: `You are a Senior DevOps Engineer. Analyze the following Kubernetes error log and provide a concise root cause analysis and a suggested fix in Chinese.\n\nLog:\n${logData}`,
     });
     return response.text || "无法分析日志内容。";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "AI 服务暂时不可用，请检查 API Key 配置。";
+    return "AI 服务暂时不可用，请检查网络连接或 API Key 配置。";
   }
 };
 
 export const generateK8sManifest = async (prompt: string): Promise<string> => {
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-pro-preview',
       contents: `Generate a valid Kubernetes YAML manifest based on this request: "${prompt}". 
       Return ONLY the YAML code block without markdown backticks. 
       Includes comments in Chinese explaining key sections.`,
@@ -32,8 +33,9 @@ export const generateK8sManifest = async (prompt: string): Promise<string> => {
 
 export const suggestOptimization = async (metrics: any): Promise<string> => {
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-pro-preview',
       contents: `Analyze these cluster metrics and suggest cost or performance optimizations in Chinese: ${JSON.stringify(metrics)}`,
     });
     return response.text || "无优化建议。";

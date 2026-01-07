@@ -6,9 +6,12 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 const mockServicesData: Service[] = [
   { id: 'svc-1', name: 'frontend', namespace: 'default', type: 'LoadBalancer', clusterIP: '10.96.0.10', ports: ['80:30080/TCP'], selector: { app: 'frontend' }, protocol: 'TCP', sessionAffinity: 'ClientIP' },
-  { id: 'svc-2', name: 'backend-api', namespace: 'default', type: 'ClusterIP', clusterIP: '10.96.0.11', ports: ['8080/TCP'], selector: { app: 'backend' }, protocol: 'TCP' },
-  { id: 'svc-3', name: 'redis-db', namespace: 'data', type: 'ClusterIP', clusterIP: '10.96.0.25', ports: ['6379/TCP'], selector: { app: 'redis' }, protocol: 'TCP' },
-  { id: 'svc-4', name: 'udp-stream', namespace: 'media', type: 'NodePort', clusterIP: '10.96.0.30', ports: ['5000:30050/UDP'], selector: { app: 'stream' }, protocol: 'UDP' },
+  // Fixed: Added missing required property 'sessionAffinity'
+  { id: 'svc-2', name: 'backend-api', namespace: 'default', type: 'ClusterIP', clusterIP: '10.96.0.11', ports: ['8080/TCP'], selector: { app: 'backend' }, protocol: 'TCP', sessionAffinity: 'None' },
+  // Fixed: Added missing required property 'sessionAffinity'
+  { id: 'svc-3', name: 'redis-db', namespace: 'data', type: 'ClusterIP', clusterIP: '10.96.0.25', ports: ['6379/TCP'], selector: { app: 'redis' }, protocol: 'TCP', sessionAffinity: 'None' },
+  // Fixed: Added missing required property 'sessionAffinity'
+  { id: 'svc-4', name: 'udp-stream', namespace: 'media', type: 'NodePort', clusterIP: '10.96.0.30', ports: ['5000:30050/UDP'], selector: { app: 'stream' }, protocol: 'UDP', sessionAffinity: 'None' },
 ];
 
 const mockIngresses: Ingress[] = [
@@ -436,7 +439,7 @@ export const Network: React.FC = () => {
                  <div className="flex items-center gap-2">
                     <Shield className="text-green-600" size={24} />
                     <div>
-                       <h3 className="font-bold text-slate-800">网络策略可视化</h3>
+                       <h3 className="font-bold text-slate-800">网络策略隔离</h3>
                        <p className="text-xs text-slate-500">基于 Namespace、Pod 和 IPBlock 的微隔离规则管理。</p>
                     </div>
                  </div>

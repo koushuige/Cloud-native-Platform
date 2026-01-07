@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { View } from '../types';
-import { LayoutDashboard, Server, Activity, AppWindow, Database, Settings, Cloud, User, Bell, Network, HardDrive } from 'lucide-react';
+import { LayoutDashboard, Server, Activity, AppWindow, Database, Settings, Cloud, User, Bell, Network, HardDrive, Zap } from 'lucide-react';
 
 interface LayoutProps {
   currentView: View;
@@ -81,6 +81,12 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, setCurrentView, chi
             icon={<AppWindow size={20} />} 
             label="应用交付" 
             onClick={() => setCurrentView(View.APPLICATIONS)} 
+          />
+          <NavItem 
+            active={currentView === View.DEVOPS} 
+            icon={<Zap size={20} />} 
+            label="DevOps 交付" 
+            onClick={() => setCurrentView(View.DEVOPS)} 
           />
           <NavItem 
             active={currentView === View.MIDDLEWARE} 

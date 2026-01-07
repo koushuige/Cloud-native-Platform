@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   StorageClass, PersistentVolumeClaim, CsiDriver, VolumeSnapshot, PersistentVolume, 
@@ -125,6 +124,20 @@ export const Storage: React.FC = () => {
   const [isDeployCephModalOpen, setIsDeployCephModalOpen] = useState(false);
   const [cephWizardStep, setCephWizardStep] = useState(1);
 
+  // Create StorageClass Modal State
+  const [isCreateSCModalOpen, setIsCreateSCModalOpen] = useState(false);
+  const [newSC, setNewSC] = useState<Partial<StorageClass>>({
+    name: '',
+    provisioner: 'rook-ceph.rbd.csi.ceph.com',
+    reclaimPolicy: 'Delete',
+    volumeBindingMode: 'Immediate',
+    allowVolumeExpansion: true
+  });
+  const [scParameters, setScParameters] = useState<{key: string, value: string}[]>([
+    { key: 'clusterID', value: 'rook-ceph' },
+    { key: 'pool', value: 'replicapool' }
+  ]);
+
   // Navigation Item Component
   const NavItem = ({ id, label, icon }: { id: typeof activeView, label: string, icon: React.ReactNode }) => (
     <button
@@ -140,7 +153,168 @@ export const Storage: React.FC = () => {
     </button>
   );
 
+  // Handlers
+  const handleCreateSC = () => {
+    if (!newSC.name) return;
+    const createdSC: StorageClass = {
+      id: `sc-${Date.now()}`,
+      name: newSC.name,
+      provisioner: newSC.provisioner || '',
+      reclaimPolicy: (newSC.reclaimPolicy as any) || 'Delete',
+      volumeBindingMode: (newSC.volumeBindingMode as any) || 'Immediate',
+      allowVolumeExpansion: newSC.allowVolumeExpansion || false
+    };
+    setSCs([...scs, createdSC]);
+    setIsCreateSCModalOpen(false);
+    // Reset form
+    setNewSC({
+      name: '',
+      provisioner: 'rook-ceph.rbd.csi.ceph.com',
+      reclaimPolicy: 'Delete',
+      volumeBindingMode: 'Immediate',
+      allowVolumeExpansion: true
+    });
+  };
+
+  const addSCParameter = () => setScParameters([...scParameters, { key: '', value: '' }]);
+  const updateSCParameter = (idx: number, field: 'key' | 'value', val: string) => {
+    const next = [...scParameters];
+    next[idx][field] = val;
+    setScParameters(next);
+  };
+  const removeSCParameter = (idx: number) => {
+    setScParameters(scParameters.filter((_, i) => i !== idx));
+  };
+
   // --- RENDER FUNCTIONS ---
+
+  const renderCreateSCModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <div>
+            <h3 className="text-xl font-bold text-slate-800">创建存储类 (StorageClass)</h3>
+            <p className="text-sm text-slate-500 mt-1">定义存储卷的供应策略、回收规则与底层参数。</p>
+          </div>
+          <button onClick={() => setIsCreateSCModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+            <X size={24} />
+          </button>
+        </div>
+
+        <div className="p-8 overflow-y-auto space-y-6">
+          <div className="grid grid-cols-2 gap-6">
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">SC 名称 <span className="text-red-500">*</span></label>
+              <input 
+                className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                placeholder="e.g. fast-ssd-storage"
+                value={newSC.name}
+                onChange={e => setNewSC({...newSC, name: e.target.value})}
+              />
+            </div>
+            
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">供应者 (Provisioner) <span className="text-red-500">*</span></label>
+              <select 
+                className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                value={newSC.provisioner}
+                onChange={e => setNewSC({...newSC, provisioner: e.target.value})}
+              >
+                <option value="rook-ceph.rbd.csi.ceph.com">Rook Ceph RBD (Block)</option>
+                <option value="rook-ceph.cephfs.csi.ceph.com">Rook CephFS (Filesystem)</option>
+                <option value="topolvm.io/lvm">Topolvm (Local LVM)</option>
+                <option value="kubernetes.io/no-provisioner">Local (Static)</option>
+                <option value="minio.csi.io">Minio (Object Storage)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">回收策略 (Reclaim Policy)</label>
+              <select 
+                className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                value={newSC.reclaimPolicy}
+                onChange={e => setNewSC({...newSC, reclaimPolicy: e.target.value as any})}
+              >
+                <option value="Delete">Delete (自动删除 PV)</option>
+                <option value="Retain">Retain (保留数据/手动清理)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">绑定模式 (Binding Mode)</label>
+              <select 
+                className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                value={newSC.volumeBindingMode}
+                onChange={e => setNewSC({...newSC, volumeBindingMode: e.target.value as any})}
+              >
+                <option value="Immediate">Immediate (立即创建)</option>
+                <option value="WaitForFirstConsumer">WaitForFirstConsumer (调度时创建)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 py-2">
+            <input 
+              type="checkbox" 
+              id="allowExpansion" 
+              className="w-4 h-4 text-blue-600 rounded"
+              checked={newSC.allowVolumeExpansion}
+              onChange={e => setNewSC({...newSC, allowVolumeExpansion: e.target.checked})}
+            />
+            <label htmlFor="allowExpansion" className="text-sm text-slate-700 font-medium">允许在线扩容 (Allow Volume Expansion)</label>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100">
+            <div className="flex justify-between items-center mb-4">
+               <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                 <Settings size={16} className="text-slate-400"/> 存储后端参数 (Parameters)
+               </h4>
+               <button onClick={addSCParameter} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                 <Plus size={14}/> 添加参数
+               </button>
+            </div>
+            <div className="space-y-3">
+              {scParameters.map((param, idx) => (
+                <div key={idx} className="flex gap-3">
+                  <input 
+                    className="flex-1 border border-slate-300 rounded px-3 py-1.5 text-xs font-mono" 
+                    placeholder="Key"
+                    value={param.key}
+                    onChange={e => updateSCParameter(idx, 'key', e.target.value)}
+                  />
+                  <input 
+                    className="flex-1 border border-slate-300 rounded px-3 py-1.5 text-xs font-mono" 
+                    placeholder="Value"
+                    value={param.value}
+                    onChange={e => updateSCParameter(idx, 'value', e.target.value)}
+                  />
+                  <button onClick={() => removeSCParameter(idx)} className="text-slate-400 hover:text-red-500">
+                    <Trash2 size={16}/>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-8 py-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+          <button 
+            onClick={() => setIsCreateSCModalOpen(false)}
+            className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-white transition-colors font-medium"
+          >
+            取消
+          </button>
+          <button 
+            onClick={handleCreateSC}
+            disabled={!newSC.name}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white rounded-lg transition-colors font-medium flex items-center gap-2 shadow-sm"
+          >
+            <Check size={18} /> 创建存储类
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderDashboard = () => (
     <div className="space-y-6 animate-in fade-in">
@@ -290,7 +464,12 @@ export const Storage: React.FC = () => {
     <div className="space-y-6 animate-in fade-in">
        <div className="flex justify-between items-center">
          <h3 className="text-lg font-bold text-slate-800">存储类 (StorageClass)</h3>
-         <button className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700"><Plus size={16}/> 创建 StorageClass</button>
+         <button 
+           onClick={() => setIsCreateSCModalOpen(true)}
+           className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700"
+         >
+           <Plus size={16}/> 创建 StorageClass
+         </button>
        </div>
        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
          <table className="w-full text-left text-sm">
@@ -430,7 +609,8 @@ export const Storage: React.FC = () => {
                     {/* Hosts */}
                     <div className="flex gap-4 relative">
                       <div className="absolute -top-8 left-0 right-0 h-px bg-slate-300 mx-auto w-[80%]"></div>
-                      {rack.items?.map((host) => (
+                      {/* Fixed: Added type assertion as rack could be CephOsd which doesn't have children items */}
+                      {(rack as CephCrushNode).items?.map((host) => (
                         <div key={host.id} className="flex flex-col items-center relative">
                           <div className="absolute -top-8 w-px h-8 bg-slate-300"></div>
                           <div className="border border-slate-300 rounded-lg p-2 bg-slate-50 min-w-[100px] text-center mb-4 z-10">
@@ -440,7 +620,8 @@ export const Storage: React.FC = () => {
                           
                           {/* OSDs */}
                           <div className="grid grid-cols-2 gap-2">
-                             {host.items?.map((osd) => (
+                             {/* Fixed: Added type assertion as host could be CephOsd which doesn't have children items */}
+                             {(host as CephCrushNode).items?.map((osd) => (
                                <div key={osd.id} className={`p-2 rounded border text-center text-xs ${osd.status === 'up' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
                                   <div className="font-mono font-bold">{osd.name}</div>
                                   <div>{osd.status}</div>
@@ -845,6 +1026,7 @@ export const Storage: React.FC = () => {
       </div>
 
       {isDeployCephModalOpen && renderCephWizard()}
+      {isCreateSCModalOpen && renderCreateSCModal()}
     </div>
   );
 };

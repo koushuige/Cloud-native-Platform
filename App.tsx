@@ -5,6 +5,7 @@ import { Dashboard } from './components/Dashboard';
 import { ClusterList } from './components/ClusterList';
 import { Operations } from './components/Operations';
 import { Applications } from './components/Applications';
+import { DevOps } from './components/DevOps';
 import { Network } from './components/Network';
 import { Storage } from './components/Storage';
 import { Middleware } from './components/Middleware';
@@ -73,6 +74,8 @@ const App: React.FC = () => {
         return <Operations />;
       case View.APPLICATIONS:
         return <Applications />;
+      case View.DEVOPS:
+        return <DevOps />;
       case View.NETWORK:
         return <Network />;
       case View.STORAGE:
