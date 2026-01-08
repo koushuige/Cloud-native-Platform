@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StorageClass, PersistentVolumeClaim, CsiDriver, VolumeSnapshot, PersistentVolume, 
   CephPool, MinioBucket, CephOsd, TopolvmNode, MinioUser, CephDeploymentConfig, 
@@ -9,9 +9,10 @@ import {
   CheckCircle, AlertTriangle, ArrowUpRight, Copy, Trash2, Edit3, X, 
   ChevronRight, Check, Zap, Network, Key, BarChart as BarChartIcon, Cpu, RefreshCw,
   LayoutDashboard, PieChart, Camera, Monitor, PlayCircle, ShieldCheck, Box, User, Lock, Globe,
-  MoreVertical, FileText, Search, Clock, Filter, AlertOctagon, Download, Share2
+  MoreVertical, FileText, Search, Clock, Filter, AlertOctagon, Download, Share2,
+  ArrowLeft, Maximize2, Gauge, ActivitySquare, Terminal, Info, History, TrendingUp, AlertCircle
 } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, LineChart, Line } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
 
 // --- Mock Data ---
 
@@ -32,68 +33,6 @@ const initialSCs: StorageClass[] = [
   { id: 'sc-3', name: 'local-path', provisioner: 'topolvm.io/lvm', reclaimPolicy: 'Delete', volumeBindingMode: 'WaitForFirstConsumer', allowVolumeExpansion: true },
 ];
 
-const mockDrivers: CsiDriver[] = [
-  { id: 'drv-1', name: 'Rook Ceph', type: 'Ceph', status: 'Healthy', version: 'v1.12.5', nodesRegistered: 5, provisioner: 'rook-ceph.rbd.csi.ceph.com', createdAt: '2023-01-10' },
-  { id: 'drv-2', name: 'Minio Operator', type: 'Minio', status: 'Healthy', version: 'v5.0.10', nodesRegistered: 5, provisioner: 'minio.csi.io', createdAt: '2023-02-15' },
-  { id: 'drv-3', name: 'Topolvm', type: 'Topolvm', status: 'Healthy', version: 'v0.28.0', nodesRegistered: 3, provisioner: 'topolvm.io/lvm', createdAt: '2023-03-10' },
-];
-
-const mockSnapshots: VolumeSnapshot[] = [
-  { id: 'snap-1', name: 'mysql-backup-daily', namespace: 'default', sourcePvc: 'mysql-data', status: 'Ready', size: '100Gi', createdAt: '2023-10-25 02:00', restoreSize: '100Gi' },
-  { id: 'snap-2', name: 'redis-backup-pre-upgrade', namespace: 'default', sourcePvc: 'redis-data', status: 'Ready', size: '20Gi', createdAt: '2023-10-24 15:30', restoreSize: '20Gi' },
-];
-
-const mockCephPools: CephPool[] = [
-  { name: 'rbd-pool', type: 'Replicated', replicas: 3, pgNum: 128, used: '2.5TB', status: 'Healthy', deviceClass: 'ssd' },
-  { name: 'cephfs-data', type: 'ErasureCoded', replicas: 0, pgNum: 64, used: '5.1TB', status: 'Healthy', deviceClass: 'hdd' },
-];
-
-const mockCrushMap: CephCrushNode = {
-  id: -1, name: 'default', type: 'root', weight: 100, items: [
-    { id: -2, name: 'rack01', type: 'rack', weight: 50, items: [
-      { id: -3, name: 'host01', type: 'host', weight: 25, items: [
-         { id: 0, name: 'osd.0', type: 'osd', weight: 12.5, status: 'up' },
-         { id: 1, name: 'osd.1', type: 'osd', weight: 12.5, status: 'up' }
-      ]},
-      { id: -4, name: 'host02', type: 'host', weight: 25, items: [
-         { id: 2, name: 'osd.2', type: 'osd', weight: 12.5, status: 'up' },
-         { id: 3, name: 'osd.3', type: 'osd', weight: 12.5, status: 'down' }
-      ]}
-    ]},
-    { id: -5, name: 'rack02', type: 'rack', weight: 50, items: [
-      { id: -6, name: 'host03', type: 'host', weight: 25, items: [
-         { id: 4, name: 'osd.4', type: 'osd', weight: 12.5, status: 'up' },
-         { id: 5, name: 'osd.5', type: 'osd', weight: 12.5, status: 'up' }
-      ]}
-    ]}
-  ]
-};
-
-const mockTopolvmNodes: TopolvmNode[] = [
-  { name: 'node-1', ip: '10.0.10.101', vgName: 'vg-local', device: '/dev/nvme0n1', total: '1024', used: '240', status: 'Ready' },
-  { name: 'node-2', ip: '10.0.10.102', vgName: 'vg-local', device: '/dev/nvme0n1', total: '1024', used: '512', status: 'Ready' },
-  { name: 'node-3', ip: '10.0.10.103', vgName: 'vg-local', device: '/dev/nvme0n1', total: '1024', used: '128', status: 'Ready' },
-];
-
-const mockTopolvmLvs: TopolvmLogicalVolume[] = [
-  { id: 'lv-1', name: 'pvc-1x2y3z', node: 'node-1', size: '20Gi', deviceClass: 'ssd', status: 'Active', pvcRef: 'default/redis-data', createdAt: '2023-10-20' },
-  { id: 'lv-2', name: 'pvc-abc123', node: 'node-2', size: '50Gi', deviceClass: 'ssd', status: 'Active', pvcRef: 'prod/mongo-data', createdAt: '2023-10-21' },
-];
-
-const mockMinioTenants: MinioTenant[] = [
-  { name: 'minio-tenant-1', namespace: 'minio-system', status: 'Healthy', nodes: 4, capacity: '16 TB', used: '4.5 TB', version: 'RELEASE.2023-10-24', pools: 1 },
-];
-
-const mockMinioBuckets: MinioBucket[] = [
-  { name: 'archive-2023', objects: 15200, size: '4.2 TB', quota: '10 TB', policy: 'Private', createdAt: '2023-01-10', versioning: true, retention: '30d' },
-  { name: 'public-assets', objects: 4500, size: '150 GB', quota: '1 TB', policy: 'Public', createdAt: '2023-03-15', versioning: false, retention: 'None' },
-];
-
-const mockMinioUsers: MinioUser[] = [
-  { accessKey: 'admin-key', policy: 'consoleAdmin', status: 'Active', createdAt: '2023-01-01' },
-  { accessKey: 'loki-service', policy: 'readWrite', status: 'Active', createdAt: '2023-05-20' },
-];
-
 const storageMetrics = [
   { time: '00:00', iops: 1200, throughput: 150, recovery: 20 },
   { time: '04:00', iops: 800, throughput: 100, recovery: 15 },
@@ -104,47 +43,48 @@ const storageMetrics = [
 ];
 
 export const Storage: React.FC = () => {
-  // Main View Navigation
   const [activeView, setActiveView] = useState<'dashboard' | 'resources' | 'sc' | 'ceph' | 'topolvm' | 'minio' | 'snapshots' | 'ops'>('dashboard');
-  
-  // Sub-tabs
   const [resourceTab, setResourceTab] = useState<'pvc' | 'pv'>('pvc');
-  const [cephTab, setCephTab] = useState<'overview' | 'pools' | 'crush' | 'monitoring'>('overview');
-  const [topolvmTab, setTopolvmTab] = useState<'nodes' | 'lvs'>('nodes');
-  const [minioTab, setMinioTab] = useState<'tenants' | 'buckets' | 'users'>('tenants');
-
-  // Data State
   const [pvcs, setPvcs] = useState(initialPVCs);
   const [pvs, setPvs] = useState(initialPVs);
   const [scs, setSCs] = useState(initialSCs);
-  const [snapshots, setSnapshots] = useState(mockSnapshots);
-  const [minioUsers, setMinioUsers] = useState(mockMinioUsers);
+  
+  const [selectedPvcId, setSelectedPvcId] = useState<string | null>(null);
+  const [isExpandModalOpen, setIsExpandModalOpen] = useState(false);
+  const [newSize, setNewSize] = useState<number>(100);
 
-  // Ceph Wizard State
-  const [isDeployCephModalOpen, setIsDeployCephModalOpen] = useState(false);
-  const [cephWizardStep, setCephWizardStep] = useState(1);
+  // --- Actions ---
 
-  // Create StorageClass Modal State
-  const [isCreateSCModalOpen, setIsCreateSCModalOpen] = useState(false);
-  const [newSC, setNewSC] = useState<Partial<StorageClass>>({
-    name: '',
-    provisioner: 'rook-ceph.rbd.csi.ceph.com',
-    reclaimPolicy: 'Delete',
-    volumeBindingMode: 'Immediate',
-    allowVolumeExpansion: true
-  });
-  const [scParameters, setScParameters] = useState<{key: string, value: string}[]>([
-    { key: 'clusterID', value: 'rook-ceph' },
-    { key: 'pool', value: 'replicapool' }
-  ]);
+  const handleExpandPvc = () => {
+    if (!selectedPvcId) return;
+    
+    // Step 1: Set to Resizing status
+    setPvcs(prev => prev.map(p => {
+      if (p.id === selectedPvcId) {
+        return { ...p, status: 'Resizing', capacity: `${newSize}Gi` };
+      }
+      return p;
+    }));
+    
+    setIsExpandModalOpen(false);
+    
+    // Step 2: Simulate Kubernetes Controller finishing expansion
+    setTimeout(() => {
+      setPvcs(prev => prev.map(p => {
+        if (p.id === selectedPvcId) {
+          return { ...p, status: 'Bound' };
+        }
+        return p;
+      }));
+    }, 2500);
+  };
 
-  // Navigation Item Component
   const NavItem = ({ id, label, icon }: { id: typeof activeView, label: string, icon: React.ReactNode }) => (
     <button
-      onClick={() => setActiveView(id)}
+      onClick={() => { setActiveView(id); setSelectedPvcId(null); }}
       className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-        activeView === id 
-          ? 'bg-blue-600 text-white shadow-md' 
+        activeView === id && !selectedPvcId
+          ? 'bg-blue-600 text-white shadow-md shadow-blue-200' 
           : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
       }`}
     >
@@ -153,346 +93,303 @@ export const Storage: React.FC = () => {
     </button>
   );
 
-  // Handlers
-  const handleCreateSC = () => {
-    if (!newSC.name) return;
-    const createdSC: StorageClass = {
-      id: `sc-${Date.now()}`,
-      name: newSC.name,
-      provisioner: newSC.provisioner || '',
-      reclaimPolicy: (newSC.reclaimPolicy as any) || 'Delete',
-      volumeBindingMode: (newSC.volumeBindingMode as any) || 'Immediate',
-      allowVolumeExpansion: newSC.allowVolumeExpansion || false
-    };
-    setSCs([...scs, createdSC]);
-    setIsCreateSCModalOpen(false);
-    // Reset form
-    setNewSC({
-      name: '',
-      provisioner: 'rook-ceph.rbd.csi.ceph.com',
-      reclaimPolicy: 'Delete',
-      volumeBindingMode: 'Immediate',
-      allowVolumeExpansion: true
-    });
-  };
+  // --- Sub-Views ---
 
-  const addSCParameter = () => setScParameters([...scParameters, { key: '', value: '' }]);
-  const updateSCParameter = (idx: number, field: 'key' | 'value', val: string) => {
-    const next = [...scParameters];
-    next[idx][field] = val;
-    setScParameters(next);
-  };
-  const removeSCParameter = (idx: number) => {
-    setScParameters(scParameters.filter((_, i) => i !== idx));
-  };
-
-  // --- RENDER FUNCTIONS ---
-
-  const renderCreateSCModal = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <div>
-            <h3 className="text-xl font-bold text-slate-800">创建存储类 (StorageClass)</h3>
-            <p className="text-sm text-slate-500 mt-1">定义存储卷的供应策略、回收规则与底层参数。</p>
-          </div>
-          <button onClick={() => setIsCreateSCModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="p-8 overflow-y-auto space-y-6">
-          <div className="grid grid-cols-2 gap-6">
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">SC 名称 <span className="text-red-500">*</span></label>
-              <input 
-                className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                placeholder="e.g. fast-ssd-storage"
-                value={newSC.name}
-                onChange={e => setNewSC({...newSC, name: e.target.value})}
-              />
-            </div>
-            
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">供应者 (Provisioner) <span className="text-red-500">*</span></label>
-              <select 
-                className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                value={newSC.provisioner}
-                onChange={e => setNewSC({...newSC, provisioner: e.target.value})}
-              >
-                <option value="rook-ceph.rbd.csi.ceph.com">Rook Ceph RBD (Block)</option>
-                <option value="rook-ceph.cephfs.csi.ceph.com">Rook CephFS (Filesystem)</option>
-                <option value="topolvm.io/lvm">Topolvm (Local LVM)</option>
-                <option value="kubernetes.io/no-provisioner">Local (Static)</option>
-                <option value="minio.csi.io">Minio (Object Storage)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">回收策略 (Reclaim Policy)</label>
-              <select 
-                className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                value={newSC.reclaimPolicy}
-                onChange={e => setNewSC({...newSC, reclaimPolicy: e.target.value as any})}
-              >
-                <option value="Delete">Delete (自动删除 PV)</option>
-                <option value="Retain">Retain (保留数据/手动清理)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">绑定模式 (Binding Mode)</label>
-              <select 
-                className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                value={newSC.volumeBindingMode}
-                onChange={e => setNewSC({...newSC, volumeBindingMode: e.target.value as any})}
-              >
-                <option value="Immediate">Immediate (立即创建)</option>
-                <option value="WaitForFirstConsumer">WaitForFirstConsumer (调度时创建)</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 py-2">
-            <input 
-              type="checkbox" 
-              id="allowExpansion" 
-              className="w-4 h-4 text-blue-600 rounded"
-              checked={newSC.allowVolumeExpansion}
-              onChange={e => setNewSC({...newSC, allowVolumeExpansion: e.target.checked})}
-            />
-            <label htmlFor="allowExpansion" className="text-sm text-slate-700 font-medium">允许在线扩容 (Allow Volume Expansion)</label>
-          </div>
-
-          <div className="pt-4 border-t border-slate-100">
-            <div className="flex justify-between items-center mb-4">
-               <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                 <Settings size={16} className="text-slate-400"/> 存储后端参数 (Parameters)
-               </h4>
-               <button onClick={addSCParameter} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-                 <Plus size={14}/> 添加参数
-               </button>
-            </div>
-            <div className="space-y-3">
-              {scParameters.map((param, idx) => (
-                <div key={idx} className="flex gap-3">
-                  <input 
-                    className="flex-1 border border-slate-300 rounded px-3 py-1.5 text-xs font-mono" 
-                    placeholder="Key"
-                    value={param.key}
-                    onChange={e => updateSCParameter(idx, 'key', e.target.value)}
-                  />
-                  <input 
-                    className="flex-1 border border-slate-300 rounded px-3 py-1.5 text-xs font-mono" 
-                    placeholder="Value"
-                    value={param.value}
-                    onChange={e => updateSCParameter(idx, 'value', e.target.value)}
-                  />
-                  <button onClick={() => removeSCParameter(idx)} className="text-slate-400 hover:text-red-500">
-                    <Trash2 size={16}/>
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="px-8 py-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
-          <button 
-            onClick={() => setIsCreateSCModalOpen(false)}
-            className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-white transition-colors font-medium"
-          >
-            取消
-          </button>
-          <button 
-            onClick={handleCreateSC}
-            disabled={!newSC.name}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white rounded-lg transition-colors font-medium flex items-center gap-2 shadow-sm"
-          >
-            <Check size={18} /> 创建存储类
-          </button>
-        </div>
+  const renderPvcDetail = () => {
+    const pvc = pvcs.find(p => p.id === selectedPvcId);
+    if (!pvc) return (
+      <div className="p-10 text-center text-slate-400">
+         <AlertCircle size={48} className="mx-auto mb-4 opacity-20"/>
+         未找到指定的 PVC 资源
+         <button onClick={() => setSelectedPvcId(null)} className="block mx-auto mt-4 text-blue-600 font-bold">返回列表</button>
       </div>
-    </div>
-  );
+    );
 
-  const renderDashboard = () => (
-    <div className="space-y-6 animate-in fade-in">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Database size={20}/></div>
-            <h4 className="font-bold text-slate-700">PVC 总数</h4>
-          </div>
-          <div className="text-2xl font-bold text-slate-800">{pvcs.length}</div>
-          <div className="text-xs text-slate-500 mt-1">Bound: {pvcs.filter(p=>p.status==='Bound').length}</div>
-        </div>
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><HardDrive size={20}/></div>
-            <h4 className="font-bold text-slate-700">存储容量</h4>
-          </div>
-          <div className="text-2xl font-bold text-slate-800">12.5 TB</div>
-          <div className="text-xs text-slate-500 mt-1">Used: 4.2 TB (33%)</div>
-        </div>
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-green-50 text-green-600 rounded-lg"><Activity size={20}/></div>
-            <h4 className="font-bold text-slate-700">健康状态</h4>
-          </div>
-          <div className="text-2xl font-bold text-green-600">Healthy</div>
-          <div className="text-xs text-slate-500 mt-1">All drivers operational</div>
-        </div>
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-orange-50 text-orange-600 rounded-lg"><AlertTriangle size={20}/></div>
-            <h4 className="font-bold text-slate-700">告警事件</h4>
-          </div>
-          <div className="text-2xl font-bold text-slate-800">0</div>
-          <div className="text-xs text-slate-500 mt-1">Past 24 hours</div>
-        </div>
-      </div>
-
-      <h3 className="text-lg font-bold text-slate-800 mt-8 mb-4">存储后端状态</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {mockDrivers.map(driver => (
-          <div key={driver.id} className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md transition-shadow">
-            <div className="flex justify-between items-start mb-4">
+    return (
+      <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setSelectedPvcId(null)} className="p-2 hover:bg-slate-200 rounded-full text-slate-500 transition-colors">
+              <ArrowLeft size={20} />
+            </button>
+            <div>
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${driver.type === 'Ceph' ? 'bg-red-50 text-red-600' : driver.type === 'Minio' ? 'bg-pink-50 text-pink-600' : 'bg-blue-50 text-blue-600'}`}>
-                   {driver.type === 'Ceph' ? <HardDrive size={24}/> : driver.type === 'Minio' ? <Cloud size={24}/> : <Server size={24}/>}
+                <h2 className="text-2xl font-bold text-slate-800">{pvc.name}</h2>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border tracking-widest ${
+                  pvc.status === 'Bound' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 
+                  pvc.status === 'Resizing' ? 'bg-blue-50 border-blue-100 text-blue-600 animate-pulse' : 
+                  'bg-orange-50 border-orange-100 text-orange-600'
+                }`}>
+                  {pvc.status}
+                </span>
+              </div>
+              <p className="text-sm text-slate-500 mt-1">Namespace: {pvc.namespace} • StorageClass: {pvc.storageClass}</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => { setNewSize(parseInt(pvc.capacity)); setIsExpandModalOpen(true); }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all shadow-md shadow-blue-100"
+            >
+              <Maximize2 size={18} />
+              <span>在线扩容</span>
+            </button>
+            <button className="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-50">
+              <Camera size={18} />
+              <span>快照备份</span>
+            </button>
+            <button className="p-2 text-slate-400 hover:text-red-600"><Trash2 size={20}/></button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm">
+              <h3 className="font-bold text-slate-700 mb-8 flex items-center gap-2 text-sm uppercase tracking-widest">
+                <Info size={16} className="text-blue-500"/> 卷元数据 (Metadata)
+              </h3>
+              <div className="grid grid-cols-2 gap-y-8">
+                <div className="space-y-1">
+                  <div className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">关联 PV 实例</div>
+                  <div className="text-sm font-mono text-blue-600 font-bold hover:underline cursor-pointer">{pvc.volumeName || 'Waiting For Binding...'}</div>
                 </div>
-                <div>
-                  <h4 className="font-bold text-slate-800">{driver.name}</h4>
-                  <div className="text-xs text-slate-500">{driver.version}</div>
+                <div className="space-y-1">
+                  <div className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">已分配容量 (Provisioned)</div>
+                  <div className="text-xl font-black text-slate-800">{pvc.capacity}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">访问模式 (Access Modes)</div>
+                  <div className="flex gap-2">
+                    {pvc.accessModes.map(m => (
+                      <span key={m} className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-black text-slate-600 border border-slate-200">{m}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">存活时长 (Age)</div>
+                  <div className="text-sm text-slate-700 font-bold">{pvc.age}</div>
                 </div>
               </div>
-              <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold">{driver.status}</span>
+
+              <div className="mt-10 pt-10 border-t border-slate-50">
+                <div className="flex justify-between items-end mb-4">
+                  <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">磁盘使用空间 (Used)</div>
+                  <div className="text-sm font-black text-slate-800">{pvc.usedPercentage}%</div>
+                </div>
+                <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden flex shadow-inner border border-slate-200">
+                  <div 
+                    className={`h-full transition-all duration-1000 ${pvc.usedPercentage > 85 ? 'bg-red-500' : 'bg-blue-600'}`}
+                    style={{ width: `${pvc.usedPercentage}%` }}
+                  ></div>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2 text-sm text-slate-600">
-               <div className="flex justify-between"><span>Provisioner:</span> <span className="font-mono text-xs">{driver.provisioner}</span></div>
-               <div className="flex justify-between"><span>Nodes:</span> <span>{driver.nodesRegistered}</span></div>
-               <div className="flex justify-between"><span>Created:</span> <span>{driver.createdAt}</span></div>
+
+            <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm">
+              <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2 text-sm uppercase tracking-widest">
+                <History size={16} className="text-orange-400"/> 控制面事件 (Recent Events)
+              </h3>
+              <div className="space-y-4 text-sm">
+                <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <CheckCircle size={18} className="text-emerald-500 mt-1 shrink-0"/>
+                  <div>
+                    <div className="font-bold text-slate-800">Normal: ProvisioningSucceeded</div>
+                    <div className="text-xs text-slate-500 mt-1">Successfully provisioned volume using rook-ceph provisioner.</div>
+                    <div className="text-[10px] text-slate-400 mt-1 font-bold">10d ago • Source: PersistentVolumeController</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+
+          <div className="space-y-6">
+            <div className="bg-slate-900 rounded-[40px] p-8 text-white shadow-xl flex flex-col justify-between min-h-[450px]">
+              <div>
+                <div className="p-4 bg-white/10 w-fit rounded-2xl mb-8 backdrop-blur-md">
+                   <ActivitySquare size={32} className="text-blue-400"/>
+                </div>
+                <h3 className="text-xl font-black mb-2">IO 性能观测</h3>
+                <p className="text-slate-400 text-xs mb-8">正在监测挂载 Pod 的实时读写吞吐。</p>
+                
+                <div className="space-y-10">
+                  <div>
+                    <div className="flex justify-between text-[10px] font-black uppercase text-slate-500 mb-3 tracking-widest">IOPS Trend</div>
+                    <div className="h-24">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={storageMetrics}>
+                          <Line type="monotone" dataKey="iops" stroke="#3b82f6" strokeWidth={3} dot={false}/>
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-[10px] font-black uppercase text-slate-500 mb-3 tracking-widest">Throughput (MB/s)</div>
+                    <div className="h-24">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={storageMetrics}>
+                          <defs>
+                            <linearGradient id="pvcGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <Area type="monotone" dataKey="throughput" stroke="#10b981" fill="url(#pvcGrad)" strokeWidth={3} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button className="mt-10 w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl font-black text-xs uppercase tracking-widest border border-white/10 transition-all">全量指标审计</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderDashboard = () => (
+    <div className="space-y-10 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {[
+          { label: 'PVC 总数', value: pvcs.length, sub: 'Active: ' + pvcs.filter(p=>p.status==='Bound').length, icon: <Layers className="text-blue-600"/>, bg: 'bg-blue-50' },
+          { label: '总存储量', value: '12.5 TB', sub: 'Used: 4.2 TB', icon: <Database className="text-indigo-600"/>, bg: 'bg-indigo-50' },
+          { label: '服务状态', value: 'OK', sub: 'Drivers Healthy', icon: <Activity className="text-emerald-600"/>, bg: 'bg-emerald-50' },
+          { label: '活跃告警', value: '0', sub: 'All Normal', icon: <AlertOctagon className="text-orange-600"/>, bg: 'bg-orange-50' }
+        ].map(card => (
+          <div key={card.label} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-xl transition-all">
+            <div className="flex items-center gap-4 mb-4">
+              <div className={`p-3 ${card.bg} rounded-2xl`}>{card.icon}</div>
+              <h4 className="font-black text-slate-400 uppercase tracking-widest text-[10px]">{card.label}</h4>
+            </div>
+            <div className="text-4xl font-black text-slate-800 tracking-tighter">{card.value}</div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase mt-2">{card.sub}</div>
+          </div>
         ))}
+      </div>
+
+      <div className="bg-white rounded-[48px] p-10 border border-slate-100 shadow-sm">
+        <h3 className="text-xl font-black text-slate-800 mb-10 flex items-center gap-3">
+          <Monitor size={24} className="text-blue-600" /> 全集群存储压力趋势
+        </h3>
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={storageMetrics}>
+              <defs>
+                <linearGradient id="dashIOPS" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+              <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 20px -5px rgba(0,0,0,0.1)'}} />
+              <Area type="monotone" dataKey="iops" stroke="#3b82f6" fill="url(#dashIOPS)" strokeWidth={4} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
 
   const renderResources = () => (
-    <div className="space-y-6 animate-in fade-in">
-      <div className="flex justify-between items-center">
-        <div className="flex gap-4 border-b border-slate-200">
-          <button onClick={() => setResourceTab('pvc')} className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${resourceTab === 'pvc' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>持久卷声明 (PVC)</button>
-          <button onClick={() => setResourceTab('pv')} className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${resourceTab === 'pv' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>持久卷 (PV)</button>
-        </div>
-        <button className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700"><Plus size={16}/> 创建 {resourceTab === 'pvc' ? 'PVC' : 'PV'}</button>
-      </div>
+    <div className="space-y-6">
+      {selectedPvcId ? renderPvcDetail() : (
+        <div className="animate-in fade-in">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex gap-10 border-b border-slate-200 px-2">
+              <button onClick={() => setResourceTab('pvc')} className={`pb-3 pt-1 px-1 text-sm font-black border-b-4 transition-all uppercase tracking-widest ${resourceTab === 'pvc' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>持久卷声明 (PVC)</button>
+              <button onClick={() => setResourceTab('pv')} className={`pb-3 pt-1 px-1 text-sm font-black border-b-4 transition-all uppercase tracking-widest ${resourceTab === 'pv' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>持久卷 (PV)</button>
+            </div>
+            <button className="bg-blue-600 text-white px-6 py-2 rounded-xl text-xs font-black flex items-center gap-2 hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all"><Plus size={16}/> 创建资源</button>
+          </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        {resourceTab === 'pvc' ? (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-3">Name</th>
-                <th className="px-6 py-3">Namespace</th>
-                <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3">Capacity</th>
-                <th className="px-6 py-3">StorageClass</th>
-                <th className="px-6 py-3">Usage</th>
-                <th className="px-6 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {pvcs.map(pvc => (
-                <tr key={pvc.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-4 font-medium text-slate-800">{pvc.name}</td>
-                  <td className="px-6 py-4 text-slate-600">{pvc.namespace}</td>
-                  <td className="px-6 py-4"><span className={`px-2 py-0.5 rounded text-xs font-medium ${pvc.status === 'Bound' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{pvc.status}</span></td>
-                  <td className="px-6 py-4">{pvc.capacity}</td>
-                  <td className="px-6 py-4 text-slate-600">{pvc.storageClass}</td>
-                  <td className="px-6 py-4 w-32">
-                    <div className="flex items-center gap-2 text-xs">
-                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500" style={{width: `${pvc.usedPercentage}%`}}></div>
-                      </div>
-                      <span>{pvc.usedPercentage}%</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right flex justify-end gap-2 text-slate-400">
-                    <button className="hover:text-blue-600"><Edit3 size={16}/></button>
-                    <button className="hover:text-red-600"><Trash2 size={16}/></button>
-                  </td>
+          <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50/50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <tr>
+                  <th className="px-8 py-5">名称</th>
+                  <th className="px-6 py-5">命名空间</th>
+                  <th className="px-6 py-5">状态</th>
+                  <th className="px-6 py-5">容量</th>
+                  <th className="px-6 py-5">存储类</th>
+                  <th className="px-6 py-5">使用率</th>
+                  <th className="px-8 py-5 text-right">操作</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-3">Name</th>
-                <th className="px-6 py-3">Capacity</th>
-                <th className="px-6 py-3">Access Mode</th>
-                <th className="px-6 py-3">Reclaim Policy</th>
-                <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3">Claim</th>
-                <th className="px-6 py-3">StorageClass</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {pvs.map(pv => (
-                <tr key={pv.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-4 font-medium text-slate-800">{pv.name}</td>
-                  <td className="px-6 py-4">{pv.capacity}</td>
-                  <td className="px-6 py-4">{pv.accessModes.join(', ')}</td>
-                  <td className="px-6 py-4 text-slate-600">{pv.reclaimPolicy}</td>
-                  <td className="px-6 py-4"><span className="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">{pv.status}</span></td>
-                  <td className="px-6 py-4 text-slate-600">{pv.claimRef}</td>
-                  <td className="px-6 py-4 text-slate-600">{pv.storageClass}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {(resourceTab === 'pvc' ? pvcs : pvs).map((item: any) => (
+                  <tr key={item.id} onClick={() => resourceTab === 'pvc' && setSelectedPvcId(item.id)} className={`group transition-colors ${resourceTab === 'pvc' ? 'hover:bg-blue-50/50 cursor-pointer' : 'hover:bg-slate-50'}`}>
+                    <td className="px-8 py-6 font-black text-slate-700 group-hover:text-blue-600">{item.name}</td>
+                    <td className="px-6 py-6 text-slate-500 font-bold">{item.namespace || '-'}</td>
+                    <td className="px-6 py-6">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border tracking-widest ${
+                        item.status === 'Bound' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 
+                        item.status === 'Resizing' ? 'bg-blue-50 border-blue-100 text-blue-600 animate-pulse' : 
+                        'bg-orange-50 border-orange-100 text-orange-600'
+                      }`}>{item.status}</span>
+                    </td>
+                    <td className="px-6 py-6 font-black text-slate-700">{item.capacity}</td>
+                    <td className="px-6 py-6 font-bold text-slate-400">{item.storageClass}</td>
+                    <td className="px-6 py-6 w-32">
+                      {resourceTab === 'pvc' ? (
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className={`h-full ${item.usedPercentage > 85 ? 'bg-red-500' : 'bg-blue-500'}`} style={{width: `${item.usedPercentage}%`}}></div>
+                          </div>
+                          <span className="text-[10px] font-black text-slate-400">{item.usedPercentage}%</span>
+                        </div>
+                      ) : '-'}
+                    </td>
+                    <td className="px-8 py-6 text-right">
+                      {resourceTab === 'pvc' && <ChevronRight className="text-slate-300 group-hover:text-blue-600 ml-auto" />}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 
   const renderStorageClasses = () => (
-    <div className="space-y-6 animate-in fade-in">
-       <div className="flex justify-between items-center">
-         <h3 className="text-lg font-bold text-slate-800">存储类 (StorageClass)</h3>
-         <button 
-           onClick={() => setIsCreateSCModalOpen(true)}
-           className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700"
-         >
+    <div className="space-y-8 animate-in fade-in">
+       <div className="flex justify-between items-end px-2">
+         <div>
+            <h3 className="text-2xl font-black text-slate-800 tracking-tight">存储类 (StorageClass)</h3>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">定义卷的动态配置、供应策略与底层协议映射。</p>
+         </div>
+         <button className="bg-blue-600 text-white px-8 py-3 rounded-2xl text-xs font-black shadow-xl shadow-blue-100 transition-all hover:bg-blue-700">
            <Plus size={16}/> 创建 StorageClass
          </button>
        </div>
-       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+       <div className="bg-white rounded-[48px] border border-slate-100 shadow-sm overflow-hidden">
          <table className="w-full text-left text-sm">
-           <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
+           <thead className="bg-slate-50/50 text-[10px] font-black uppercase tracking-widest text-slate-400">
              <tr>
-               <th className="px-6 py-3">Name</th>
-               <th className="px-6 py-3">Provisioner</th>
-               <th className="px-6 py-3">Reclaim Policy</th>
-               <th className="px-6 py-3">Binding Mode</th>
-               <th className="px-6 py-3">Expansion</th>
-               <th className="px-6 py-3 text-right">Actions</th>
+               <th className="px-8 py-5">Name</th>
+               <th className="px-6 py-5">Provisioner</th>
+               <th className="px-6 py-5">Reclaim Policy</th>
+               <th className="px-6 py-5">Binding Mode</th>
+               <th className="px-6 py-5">Expansion</th>
+               <th className="px-8 py-5 text-right">Actions</th>
              </tr>
            </thead>
-           <tbody className="divide-y divide-slate-100">
+           <tbody className="divide-y divide-slate-50 font-bold text-slate-600">
              {scs.map(sc => (
-               <tr key={sc.id} className="hover:bg-slate-50">
-                 <td className="px-6 py-4 font-medium text-slate-800">{sc.name}</td>
-                 <td className="px-6 py-4 font-mono text-xs text-slate-600">{sc.provisioner}</td>
-                 <td className="px-6 py-4 text-slate-600">{sc.reclaimPolicy}</td>
-                 <td className="px-6 py-4 text-slate-600">{sc.volumeBindingMode}</td>
-                 <td className="px-6 py-4 text-slate-600">{sc.allowVolumeExpansion ? 'True' : 'False'}</td>
-                 <td className="px-6 py-4 text-right flex justify-end gap-2 text-slate-400">
-                    <button className="hover:text-blue-600"><Settings size={16}/></button>
+               <tr key={sc.id} className="hover:bg-slate-50/80 transition-colors">
+                 <td className="px-8 py-6 font-black text-slate-800">{sc.name}</td>
+                 <td className="px-6 py-6 font-mono text-xs text-slate-400">{sc.provisioner}</td>
+                 <td className="px-6 py-6"><span className="bg-slate-100 px-2 py-0.5 rounded text-[10px] font-black uppercase">{sc.reclaimPolicy}</span></td>
+                 <td className="px-6 py-6 text-[10px] uppercase font-black">{sc.volumeBindingMode}</td>
+                 <td className="px-6 py-6">
+                    {sc.allowVolumeExpansion ? (
+                        <span className="flex items-center gap-1 text-emerald-500 text-[10px] uppercase font-black"><CheckCircle size={14}/> Supported</span>
+                    ) : (
+                        <span className="flex items-center gap-1 text-slate-300 text-[10px] uppercase font-black"><AlertOctagon size={14}/> Not Supported</span>
+                    )}
+                 </td>
+                 <td className="px-8 py-6 text-right">
+                    <button className="p-2 text-slate-300 hover:text-blue-600"><Settings size={18}/></button>
                  </td>
                </tr>
              ))}
@@ -502,531 +399,72 @@ export const Storage: React.FC = () => {
     </div>
   );
 
-  const renderCeph = () => (
-    <div className="space-y-6 animate-in fade-in">
-       {/* Ceph Header */}
-       <div className="flex justify-between items-center">
-         <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><HardDrive className="text-red-600"/> Ceph 分布式存储</h3>
-         <div className="flex gap-2">
-            <button onClick={() => setCephTab('overview')} className={`px-3 py-1.5 rounded-lg text-sm font-medium ${cephTab==='overview' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>总览</button>
-            <button onClick={() => setCephTab('pools')} className={`px-3 py-1.5 rounded-lg text-sm font-medium ${cephTab==='pools' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>存储池</button>
-            <button onClick={() => setCephTab('crush')} className={`px-3 py-1.5 rounded-lg text-sm font-medium ${cephTab==='crush' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>CRUSH Map</button>
-            <button onClick={() => setCephTab('monitoring')} className={`px-3 py-1.5 rounded-lg text-sm font-medium ${cephTab==='monitoring' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>监控</button>
-            <button onClick={() => setIsDeployCephModalOpen(true)} className="ml-2 bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-red-700"><Plus size={16}/> 部署向导</button>
-         </div>
-       </div>
-
-       {/* Ceph Content */}
-       {cephTab === 'overview' && (
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-               <h4 className="text-sm font-bold text-slate-500 uppercase">Cluster Status</h4>
-               <div className="text-3xl font-bold text-green-600 mt-2 flex items-center gap-2"><CheckCircle size={28}/> HEALTH_OK</div>
-               <div className="mt-4 text-sm text-slate-600 space-y-1">
-                 <div className="flex justify-between"><span>Monitors:</span> <span>3/3 Quorum</span></div>
-                 <div className="flex justify-between"><span>OSDs:</span> <span>6/6 Up, 6 In</span></div>
-                 <div className="flex justify-between"><span>MGRs:</span> <span>Active</span></div>
-               </div>
-            </div>
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-               <h4 className="text-sm font-bold text-slate-500 uppercase">Capacity Usage</h4>
-               <div className="h-32 mt-2">
-                 <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={[{name: 'Raw', used: 35, available: 65}]} layout="vertical">
-                       <XAxis type="number" hide />
-                       <YAxis type="category" dataKey="name" hide />
-                       <Tooltip />
-                       <Bar dataKey="used" stackId="a" fill="#ef4444" radius={[4,0,0,4]} />
-                       <Bar dataKey="available" stackId="a" fill="#e2e8f0" radius={[0,4,4,0]} />
-                    </BarChart>
-                 </ResponsiveContainer>
-               </div>
-               <div className="flex justify-between text-sm text-slate-600 mt-2">
-                  <span>Used: 7.6 TB</span>
-                  <span>Total: 20 TB</span>
-               </div>
-            </div>
-         </div>
-       )}
-
-       {cephTab === 'pools' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-             <table className="w-full text-left text-sm">
-               <thead className="bg-slate-50 text-slate-500 font-medium">
-                 <tr>
-                    <th className="px-6 py-3">Pool Name</th>
-                    <th className="px-6 py-3">Type</th>
-                    <th className="px-6 py-3">Replica / EC</th>
-                    <th className="px-6 py-3">PG Num</th>
-                    <th className="px-6 py-3">Usage</th>
-                    <th className="px-6 py-3">Device Class</th>
-                    <th className="px-6 py-3">Status</th>
-                 </tr>
-               </thead>
-               <tbody className="divide-y divide-slate-100">
-                  {mockCephPools.map((pool, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50">
-                       <td className="px-6 py-4 font-bold text-slate-700">{pool.name}</td>
-                       <td className="px-6 py-4 text-slate-600">{pool.type}</td>
-                       <td className="px-6 py-4">{pool.type === 'Replicated' ? `Size: ${pool.replicas}` : 'EC 4+2'}</td>
-                       <td className="px-6 py-4">{pool.pgNum}</td>
-                       <td className="px-6 py-4">{pool.used}</td>
-                       <td className="px-6 py-4"><span className="uppercase text-xs font-bold bg-slate-100 px-2 py-1 rounded text-slate-600">{pool.deviceClass}</span></td>
-                       <td className="px-6 py-4"><span className="text-green-600 font-bold text-xs bg-green-50 px-2 py-1 rounded">{pool.status}</span></td>
-                    </tr>
-                  ))}
-               </tbody>
-             </table>
-          </div>
-       )}
-
-      {cephTab === 'crush' && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 overflow-x-auto">
-          <div className="flex justify-between items-center mb-6">
-             <h4 className="font-bold text-slate-700">CRUSH Map Topology</h4>
-             <button className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-200">Rebalance / Optimize</button>
-          </div>
-          <div className="flex flex-col items-center">
-            {/* Root */}
-            <div className="border border-slate-300 rounded-lg p-3 bg-slate-50 min-w-[120px] text-center mb-8 relative">
-              <div className="font-bold text-slate-800">{mockCrushMap.name}</div>
-              <div className="text-xs text-slate-500">{mockCrushMap.type} (w:{mockCrushMap.weight})</div>
-              <div className="absolute -bottom-8 left-1/2 w-px h-8 bg-slate-300"></div>
-            </div>
-
-            {/* Racks */}
-            <div className="flex gap-12 relative">
-               <div className="absolute -top-8 left-0 right-0 h-px bg-slate-300 mx-auto w-[50%]"></div>
-               {mockCrushMap.items?.map((rack) => (
-                 <div key={rack.id} className="flex flex-col items-center">
-                    <div className="absolute -top-8 w-px h-8 bg-slate-300"></div>
-                    <div className="border border-slate-300 rounded-lg p-3 bg-white min-w-[120px] text-center mb-8 relative z-10">
-                      <div className="font-bold text-slate-800">{rack.name}</div>
-                      <div className="text-xs text-slate-500">{rack.type} (w:{rack.weight})</div>
-                      <div className="absolute -bottom-8 left-1/2 w-px h-8 bg-slate-300"></div>
-                    </div>
-                    
-                    {/* Hosts */}
-                    <div className="flex gap-4 relative">
-                      <div className="absolute -top-8 left-0 right-0 h-px bg-slate-300 mx-auto w-[80%]"></div>
-                      {/* Fixed: Added type assertion as rack could be CephOsd which doesn't have children items */}
-                      {(rack as CephCrushNode).items?.map((host) => (
-                        <div key={host.id} className="flex flex-col items-center relative">
-                          <div className="absolute -top-8 w-px h-8 bg-slate-300"></div>
-                          <div className="border border-slate-300 rounded-lg p-2 bg-slate-50 min-w-[100px] text-center mb-4 z-10">
-                             <div className="font-bold text-sm text-slate-800">{host.name}</div>
-                             <div className="text-[10px] text-slate-500">{host.type}</div>
-                          </div>
-                          
-                          {/* OSDs */}
-                          <div className="grid grid-cols-2 gap-2">
-                             {/* Fixed: Added type assertion as host could be CephOsd which doesn't have children items */}
-                             {(host as CephCrushNode).items?.map((osd) => (
-                               <div key={osd.id} className={`p-2 rounded border text-center text-xs ${osd.status === 'up' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
-                                  <div className="font-mono font-bold">{osd.name}</div>
-                                  <div>{osd.status}</div>
-                               </div>
-                             ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                 </div>
-               ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-       {cephTab === 'monitoring' && (
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-             <h4 className="font-bold text-slate-700 mb-4">Performance Metrics (IOPS & Throughput)</h4>
-             <div className="h-64">
-               <ResponsiveContainer width="100%" height="100%">
-                 <AreaChart data={storageMetrics}>
-                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
-                   <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false}/>
-                   <YAxis yAxisId="left" stroke="#3b82f6" fontSize={12} tickLine={false} axisLine={false} />
-                   <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={12} tickLine={false} axisLine={false} />
-                   <Tooltip />
-                   <Legend />
-                   <Area yAxisId="left" type="monotone" dataKey="iops" stroke="#3b82f6" fillOpacity={0.1} fill="#3b82f6" name="IOPS" />
-                   <Area yAxisId="right" type="monotone" dataKey="throughput" stroke="#10b981" fillOpacity={0.1} fill="#10b981" name="MB/s" />
-                 </AreaChart>
-               </ResponsiveContainer>
-             </div>
-          </div>
-       )}
-    </div>
-  );
-
-  const renderTopolvm = () => (
-    <div className="space-y-6 animate-in fade-in">
-       <div className="flex justify-between items-center">
-         <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Server className="text-green-600"/> Topolvm 本地存储</h3>
-         <div className="flex gap-2">
-            <button onClick={() => setTopolvmTab('nodes')} className={`px-3 py-1.5 rounded-lg text-sm font-medium ${topolvmTab==='nodes' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>节点视图</button>
-            <button onClick={() => setTopolvmTab('lvs')} className={`px-3 py-1.5 rounded-lg text-sm font-medium ${topolvmTab==='lvs' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>逻辑卷 (LV)</button>
-         </div>
-       </div>
-
-       {topolvmTab === 'nodes' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-             <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-slate-500 font-medium">
-                   <tr>
-                      <th className="px-6 py-3">Node</th>
-                      <th className="px-6 py-3">IP</th>
-                      <th className="px-6 py-3">VG Name</th>
-                      <th className="px-6 py-3">Device Path</th>
-                      <th className="px-6 py-3">Capacity (GB)</th>
-                      <th className="px-6 py-3">Status</th>
-                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                   {mockTopolvmNodes.map((node, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50">
-                         <td className="px-6 py-4 font-bold text-slate-700">{node.name}</td>
-                         <td className="px-6 py-4 text-slate-600">{node.ip}</td>
-                         <td className="px-6 py-4 font-mono">{node.vgName}</td>
-                         <td className="px-6 py-4 font-mono text-slate-500">{node.device}</td>
-                         <td className="px-6 py-4">
-                            <div className="flex items-center gap-2 w-32">
-                               <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                  <div className="h-full bg-green-500" style={{width: `${(parseInt(node.used)/parseInt(node.total))*100}%`}}></div>
-                               </div>
-                               <span className="text-xs">{node.used}/{node.total}</span>
-                            </div>
-                         </td>
-                         <td className="px-6 py-4"><span className="text-green-600 bg-green-50 px-2 py-0.5 rounded text-xs font-bold">{node.status}</span></td>
-                      </tr>
-                   ))}
-                </tbody>
-             </table>
-          </div>
-       )}
-
-       {topolvmTab === 'lvs' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-             <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-slate-500 font-medium">
-                   <tr>
-                      <th className="px-6 py-3">LV Name</th>
-                      <th className="px-6 py-3">Node</th>
-                      <th className="px-6 py-3">Size</th>
-                      <th className="px-6 py-3">PVC Ref</th>
-                      <th className="px-6 py-3">Created</th>
-                      <th className="px-6 py-3">Status</th>
-                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                   {mockTopolvmLvs.map((lv, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50">
-                         <td className="px-6 py-4 font-mono text-slate-700">{lv.name}</td>
-                         <td className="px-6 py-4">{lv.node}</td>
-                         <td className="px-6 py-4">{lv.size}</td>
-                         <td className="px-6 py-4 text-blue-600">{lv.pvcRef}</td>
-                         <td className="px-6 py-4 text-slate-500">{lv.createdAt}</td>
-                         <td className="px-6 py-4"><span className="text-green-600 bg-green-50 px-2 py-0.5 rounded text-xs font-bold">{lv.status}</span></td>
-                      </tr>
-                   ))}
-                </tbody>
-             </table>
-          </div>
-       )}
-    </div>
-  );
-
-  const renderMinio = () => (
-    <div className="space-y-6 animate-in fade-in">
-       <div className="flex justify-between items-center">
-         <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Cloud className="text-pink-600"/> Minio 对象存储</h3>
-         <div className="flex gap-2">
-            <button onClick={() => setMinioTab('tenants')} className={`px-3 py-1.5 rounded-lg text-sm font-medium ${minioTab==='tenants' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>租户管理</button>
-            <button onClick={() => setMinioTab('buckets')} className={`px-3 py-1.5 rounded-lg text-sm font-medium ${minioTab==='buckets' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>Bucket 管理</button>
-            <button onClick={() => setMinioTab('users')} className={`px-3 py-1.5 rounded-lg text-sm font-medium ${minioTab==='users' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>用户权限</button>
-         </div>
-       </div>
-
-       {minioTab === 'tenants' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             {mockMinioTenants.map((tenant, idx) => (
-                <div key={idx} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-                   <div className="flex justify-between items-start mb-4">
-                      <div className="flex items-center gap-3">
-                         <div className="bg-pink-50 p-3 rounded-lg text-pink-600"><Cloud size={24}/></div>
-                         <div>
-                            <h4 className="font-bold text-slate-800">{tenant.name}</h4>
-                            <div className="text-xs text-slate-500">{tenant.namespace}</div>
-                         </div>
-                      </div>
-                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">{tenant.status}</span>
-                   </div>
-                   <div className="grid grid-cols-2 gap-4 text-sm mt-4">
-                      <div className="bg-slate-50 p-3 rounded-lg">
-                         <div className="text-xs text-slate-500">Total Capacity</div>
-                         <div className="font-bold text-slate-800">{tenant.capacity}</div>
-                      </div>
-                      <div className="bg-slate-50 p-3 rounded-lg">
-                         <div className="text-xs text-slate-500">Nodes / Pools</div>
-                         <div className="font-bold text-slate-800">{tenant.nodes} / {tenant.pools}</div>
-                      </div>
-                   </div>
-                   <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500">
-                      <span>Ver: {tenant.version}</span>
-                      <button className="text-blue-600 hover:underline">管理控制台</button>
-                   </div>
-                </div>
-             ))}
-             <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-slate-400 hover:border-pink-300 hover:text-pink-500 hover:bg-pink-50/30 transition-all cursor-pointer min-h-[200px]">
-                <Plus size={32} />
-                <span className="mt-2 font-medium">创建新租户</span>
-             </div>
-          </div>
-       )}
-
-       {minioTab === 'buckets' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                <h4 className="font-bold text-slate-700">Bucket 列表 (minio-tenant-1)</h4>
-                <button className="bg-pink-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-pink-700"><Plus size={16}/> 新建 Bucket</button>
-             </div>
-             <table className="w-full text-left text-sm">
-                <thead className="bg-white text-slate-500 font-medium border-b border-slate-200">
-                   <tr>
-                      <th className="px-6 py-3">Bucket Name</th>
-                      <th className="px-6 py-3">Objects</th>
-                      <th className="px-6 py-3">Size</th>
-                      <th className="px-6 py-3">Quota</th>
-                      <th className="px-6 py-3">Policy</th>
-                      <th className="px-6 py-3">Features</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
-                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                   {mockMinioBuckets.map((bucket, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50">
-                         <td className="px-6 py-4 font-medium text-slate-800">{bucket.name}</td>
-                         <td className="px-6 py-4">{bucket.objects.toLocaleString()}</td>
-                         <td className="px-6 py-4">{bucket.size}</td>
-                         <td className="px-6 py-4">{bucket.quota}</td>
-                         <td className="px-6 py-4"><span className={`px-2 py-0.5 rounded text-xs font-bold ${bucket.policy === 'Public' ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'}`}>{bucket.policy}</span></td>
-                         <td className="px-6 py-4 flex gap-1">
-                            {bucket.versioning && <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded text-xs border border-blue-100">Ver</span>}
-                            {bucket.retention !== 'None' && <span className="bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded text-xs border border-orange-100">Lock</span>}
-                         </td>
-                         <td className="px-6 py-4 text-right flex justify-end gap-2 text-slate-400">
-                           <button className="hover:text-blue-600"><Settings size={16}/></button>
-                           <button className="hover:text-red-600"><Trash2 size={16}/></button>
-                         </td>
-                      </tr>
-                   ))}
-                </tbody>
-             </table>
-          </div>
-       )}
-
-       {minioTab === 'users' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                <h4 className="font-bold text-slate-700">Access Keys & Policy</h4>
-                <button 
-                  onClick={() => setMinioUsers([...minioUsers, { accessKey: `user-${Date.now()}`, policy: 'readOnly', status: 'Active', createdAt: new Date().toISOString().split('T')[0] }])}
-                  className="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-slate-900"
-                >
-                  <Plus size={16}/> 创建 Key
-                </button>
-             </div>
-             <table className="w-full text-left text-sm">
-                <thead className="bg-white text-slate-500 font-medium border-b border-slate-200">
-                   <tr>
-                      <th className="px-6 py-3">Access Key</th>
-                      <th className="px-6 py-3">Policy</th>
-                      <th className="px-6 py-3">Status</th>
-                      <th className="px-6 py-3">Created At</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
-                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                   {minioUsers.map((user, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50">
-                         <td className="px-6 py-4 font-mono font-bold text-slate-700">{user.accessKey}</td>
-                         <td className="px-6 py-4">
-                           <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs border border-slate-200">{user.policy}</span>
-                         </td>
-                         <td className="px-6 py-4">
-                           <span className={`px-2 py-0.5 rounded text-xs font-bold ${user.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                             {user.status}
-                           </span>
-                         </td>
-                         <td className="px-6 py-4 text-slate-500">{user.createdAt}</td>
-                         <td className="px-6 py-4 text-right flex justify-end gap-2 text-slate-400">
-                           <button className="hover:text-blue-600"><Edit3 size={16}/></button>
-                           <button onClick={() => setMinioUsers(minioUsers.filter(u => u.accessKey !== user.accessKey))} className="hover:text-red-600"><Trash2 size={16}/></button>
-                         </td>
-                      </tr>
-                   ))}
-                </tbody>
-             </table>
-          </div>
-       )}
-    </div>
-  );
-
-  const renderSnapshots = () => (
-    <div className="space-y-6 animate-in fade-in">
-       <div className="flex justify-between items-center">
-         <div>
-            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Camera size={20}/> 快照与备份</h3>
-            <p className="text-sm text-slate-500 mt-1">基于 CSI VolumeSnapshot 的数据保护与恢复。</p>
-         </div>
-         <button className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700"><Plus size={16}/> 创建快照</button>
-       </div>
-       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full text-left text-sm">
-             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
-                <tr>
-                   <th className="px-6 py-3">Snapshot Name</th>
-                   <th className="px-6 py-3">Namespace</th>
-                   <th className="px-6 py-3">Source PVC</th>
-                   <th className="px-6 py-3">Size</th>
-                   <th className="px-6 py-3">Created At</th>
-                   <th className="px-6 py-3">Status</th>
-                   <th className="px-6 py-3 text-right">Actions</th>
-                </tr>
-             </thead>
-             <tbody className="divide-y divide-slate-100">
-                {snapshots.map(snap => (
-                   <tr key={snap.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 font-medium text-slate-800">{snap.name}</td>
-                      <td className="px-6 py-4 text-slate-600">{snap.namespace}</td>
-                      <td className="px-6 py-4 text-slate-600">{snap.sourcePvc}</td>
-                      <td className="px-6 py-4">{snap.size}</td>
-                      <td className="px-6 py-4 text-slate-500">{snap.createdAt}</td>
-                      <td className="px-6 py-4"><span className="text-green-600 bg-green-50 px-2 py-0.5 rounded text-xs font-bold">{snap.status}</span></td>
-                      <td className="px-6 py-4 text-right flex justify-end gap-2">
-                         <button className="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-xs font-medium flex items-center gap-1">
-                            <Copy size={14}/> 克隆卷
-                         </button>
-                      </td>
-                   </tr>
-                ))}
-             </tbody>
-          </table>
-       </div>
-    </div>
-  );
-
-  const renderOps = () => (
-     <div className="space-y-6 animate-in fade-in">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-           <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><Monitor size={20} className="text-blue-600"/> 存储运维监控</h3>
-           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div>
-                 <h4 className="text-sm font-bold text-slate-500 mb-4">Total IOPS (Cluster Wide)</h4>
-                 <div className="h-64 bg-slate-50 rounded-lg border border-slate-100 p-2">
-                    <ResponsiveContainer width="100%" height="100%">
-                       <LineChart data={storageMetrics}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0"/>
-                          <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false}/>
-                          <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false}/>
-                          <Tooltip />
-                          <Line type="monotone" dataKey="iops" stroke="#3b82f6" strokeWidth={2} dot={false}/>
-                       </LineChart>
-                    </ResponsiveContainer>
-                 </div>
-              </div>
-              <div>
-                 <h4 className="text-sm font-bold text-slate-500 mb-4">Throughput (MB/s)</h4>
-                 <div className="h-64 bg-slate-50 rounded-lg border border-slate-100 p-2">
-                    <ResponsiveContainer width="100%" height="100%">
-                       <LineChart data={storageMetrics}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0"/>
-                          <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false}/>
-                          <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false}/>
-                          <Tooltip />
-                          <Line type="monotone" dataKey="throughput" stroke="#10b981" strokeWidth={2} dot={false}/>
-                       </LineChart>
-                    </ResponsiveContainer>
-                 </div>
-              </div>
-           </div>
-        </div>
-     </div>
-  );
-
-  // --- CEPH WIZARD (Simplified for brevity) ---
-  const renderCephWizard = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
-       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[600px] flex flex-col">
-          <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-             <h3 className="text-xl font-bold text-slate-800">部署 Ceph 分布式存储</h3>
-             <button onClick={() => setIsDeployCephModalOpen(false)}><X size={24} className="text-slate-400 hover:text-slate-600"/></button>
-          </div>
-          <div className="flex-1 p-8 overflow-y-auto">
-             <div className="flex gap-4 mb-8">
-                {[1,2,3,4].map(s => (
-                   <div key={s} className={`flex-1 h-2 rounded-full ${s <= cephWizardStep ? 'bg-red-600' : 'bg-slate-200'}`}></div>
-                ))}
-             </div>
-             <div className="text-center py-10">
-                <HardDrive size={64} className="mx-auto text-red-100 mb-4"/>
-                <h4 className="text-lg font-bold text-slate-700">Wizard Step {cephWizardStep}</h4>
-                <p className="text-slate-500 mt-2">配置节点、磁盘与网络参数...</p>
-             </div>
-          </div>
-          <div className="px-8 py-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
-             <button onClick={() => setCephWizardStep(s => Math.max(1, s-1))} disabled={cephWizardStep===1} className="px-6 py-2 border border-slate-300 rounded-lg text-slate-600">上一步</button>
-             <button onClick={() => {
-                if(cephWizardStep < 4) setCephWizardStep(s => s+1);
-                else { setIsDeployCephModalOpen(false); alert('部署任务已提交'); }
-             }} className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">{cephWizardStep === 4 ? '开始部署' : '下一步'}</button>
-          </div>
-       </div>
-    </div>
-  );
-
   return (
     <div className="flex h-full bg-slate-50/50 -m-8">
-      {/* Sub-Sidebar */}
-      <div className="w-64 bg-white border-r border-slate-200 p-4 flex flex-col h-[calc(100vh-64px)] overflow-y-auto">
-         <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-2">Core Storage</div>
+      <div className="w-72 bg-white border-r border-slate-200 p-6 flex flex-col h-[calc(100vh-64px)] overflow-y-auto shrink-0">
+         <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 px-2">Core Storage</div>
          <div className="space-y-1">
             <NavItem id="dashboard" label="概览" icon={<LayoutDashboard size={18} />} />
             <NavItem id="resources" label="资源管理 (PV/PVC)" icon={<Database size={18} />} />
             <NavItem id="sc" label="存储类 (SC)" icon={<Layers size={18} />} />
          </div>
-
-         <div className="my-6 border-t border-slate-100"></div>
-         <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-2">Storage Providers</div>
+         <div className="my-10 border-t border-slate-100"></div>
+         <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 px-2">Storage Providers</div>
          <div className="space-y-1">
             <NavItem id="ceph" label="Rook Ceph" icon={<HardDrive size={18} className="text-red-500" />} />
             <NavItem id="topolvm" label="Topolvm 本地盘" icon={<Server size={18} className="text-green-500" />} />
             <NavItem id="minio" label="Minio 对象存储" icon={<Cloud size={18} className="text-pink-500" />} />
          </div>
+      </div>
 
-         <div className="my-6 border-t border-slate-100"></div>
-         <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-2">Data Protection</div>
-         <div className="space-y-1">
-            <NavItem id="snapshots" label="快照与备份" icon={<Camera size={18} />} />
-            <NavItem id="ops" label="监控运维" icon={<Monitor size={18} />} />
+      <div className="flex-1 p-10 overflow-y-auto h-[calc(100vh-64px)] scrollbar-hide">
+         <div className="max-w-7xl mx-auto">
+            {activeView === 'dashboard' && renderDashboard()}
+            {activeView === 'resources' && renderResources()}
+            {activeView === 'sc' && renderStorageClasses()}
+            {['ceph', 'topolvm', 'minio', 'snapshots', 'ops'].includes(activeView) && (
+              <div className="flex flex-col items-center justify-center py-40 text-slate-300">
+                <Settings size={80} className="opacity-10 mb-4 animate-spin duration-[10s]" />
+                <p className="font-black uppercase tracking-widest text-xs">{activeView} 模块深度功能开发中...</p>
+              </div>
+            )}
          </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 p-8 overflow-y-auto h-[calc(100vh-64px)]">
-         {activeView === 'dashboard' && renderDashboard()}
-         {activeView === 'resources' && renderResources()}
-         {activeView === 'sc' && renderStorageClasses()}
-         {activeView === 'ceph' && renderCeph()}
-         {activeView === 'topolvm' && renderTopolvm()}
-         {activeView === 'minio' && renderMinio()}
-         {activeView === 'snapshots' && renderSnapshots()}
-         {activeView === 'ops' && renderOps()}
-      </div>
-
-      {isDeployCephModalOpen && renderCephWizard()}
-      {isCreateSCModalOpen && renderCreateSCModal()}
+      {isExpandModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-lg p-10 border border-white/20">
+            <div className="flex justify-between items-center mb-8">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><Maximize2 size={24}/></div>
+                <h3 className="text-xl font-black text-slate-800">在线扩容存储卷</h3>
+              </div>
+              <button onClick={() => setIsExpandModalOpen(false)} className="text-slate-400"><X size={24}/></button>
+            </div>
+            <div className="space-y-6">
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4">
+                <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest"><span>当前容量</span><span>目标容量</span></div>
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl font-black text-slate-400">{pvcs.find(p=>p.id===selectedPvcId)?.capacity}</span>
+                  <ChevronRight className="text-slate-300" size={32}/>
+                  <div className="flex items-end gap-1">
+                    <input type="number" className="w-24 bg-white border-b-4 border-blue-600 text-3xl font-black text-blue-600 outline-none p-1 text-center" value={newSize} onChange={e => setNewSize(Math.max(parseInt(e.target.value)||0, 1))}/>
+                    <span className="text-lg font-black text-blue-600 pb-1">Gi</span>
+                  </div>
+                </div>
+              </div>
+              <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100 flex gap-4 items-start text-xs font-bold text-amber-800 leading-relaxed">
+                <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                存储卷容量只能增加不能减少，扩容后系统将自动调整文件系统大小。
+              </div>
+            </div>
+            <div className="mt-10 flex gap-3">
+              <button onClick={() => setIsExpandModalOpen(false)} className="flex-1 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-black text-slate-500">取消</button>
+              <button onClick={handleExpandPvc} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-xs font-black shadow-xl">确认扩容</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
